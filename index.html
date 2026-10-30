@@ -1,0 +1,2264 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ระบบเดินตรวจความปลอดภัย รปภ. (Guard Tour System)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html5-qrcode scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- QRCode generator lib for printing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'Sarabun', sans-serif;
+      touch-action: manipulation;
+    }
+    /* ป้องกัน iOS ซูมเข้าอัตโนมัติเมื่อกดพิมพ์ใน input */
+    @media (max-width: 640px) {
+      input, select, textarea {
+        font-size: 16px !important;
+      }
+    }
+    #reader video {
+      border-radius: 1rem;
+      object-fit: cover;
+    }
+    /* ปรับแต่ง Scrollbar บนมือถือ */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #print-area, #print-area * {
+        visibility: visible;
+      }
+      #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
+
+  <!-- Header (Mobile-Optimized) -->
+  <header class="bg-slate-900 text-white sticky top-0 z-50 shadow-md">
+    <div class="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center space-x-2 min-w-0">
+        <div class="bg-blue-600 p-2 rounded-xl text-white flex-shrink-0 shadow-sm">
+          <i data-lucide="shield-check" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-sm sm:text-base md:text-lg font-bold leading-tight truncate">Guard Tour System</h1>
+          <p class="text-[10px] sm:text-xs text-slate-400 truncate">ระบบเดินตรวจ สนง.ใหญ่ / นวนคร / นนทบุรี</p>
+        </div>
+      </div>
+      
+      <!-- Right Side Header Controls -->
+      <div class="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+        <!-- Logged-in User Info Badge -->
+        <div id="user-info-header" class="hidden items-center space-x-1.5 sm:space-x-2 bg-slate-800 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-slate-700">
+          <div class="text-right">
+            <div id="header-user-name" class="text-[11px] sm:text-xs font-bold leading-tight text-slate-200 truncate max-w-[120px] sm:max-w-none">นายสมศักดิ์</div>
+            <div class="flex items-center justify-end space-x-1 mt-0.5">
+              <span id="header-user-role" class="text-[9px] sm:text-[10px] font-semibold px-1 py-0.2 rounded bg-emerald-900 text-emerald-300">รปภ.</span>
+              <span id="header-user-factory" class="text-[9px] sm:text-[10px] text-slate-400 hidden xs:inline truncate">สำนักงานใหญ่</span>
+            </div>
+          </div>
+          <button onclick="handleLogout()" class="p-1 text-slate-400 hover:text-rose-400 active:text-rose-500 rounded-lg transition" title="ออกจากระบบ (Logout)">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Settings button (เฉพาะ Admin เท่านั้น) -->
+        <button id="btn-header-config" onclick="openConfigModal()" class="hidden p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 active:scale-95 transition" title="ตั้งค่าเชื่อมต่อ Google Sheets (เฉพาะ Admin)">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs (Only shown for HR and Admin) -->
+    <nav id="nav-tabs-container" class="bg-slate-800 border-t border-slate-700 hidden">
+      <div class="max-w-5xl mx-auto px-1 sm:px-2 flex">
+        <button onclick="switchTab('admin')" id="tab-admin" class="flex-1 py-2.5 px-2 text-center text-xs sm:text-sm font-medium border-b-2 border-blue-500 text-blue-400 flex items-center justify-center space-x-1 transition">
+          <i data-lucide="users" class="w-4 h-4 flex-shrink-0"></i>
+          <span class="truncate">จัดการ รปภ./จุดตรวจ</span>
+        </button>
+        <button onclick="switchTab('report')" id="tab-report" class="flex-1 py-2.5 px-2 text-center text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1 transition">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 flex-shrink-0"></i>
+          <span class="truncate">รายงานสรุป</span>
+        </button>
+        <button onclick="switchTab('guard')" id="tab-guard" class="flex-1 py-2.5 px-2 text-center text-xs sm:text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1 transition">
+          <i data-lucide="scan" class="w-4 h-4 flex-shrink-0"></i>
+          <span class="truncate">สแกนตรวจ</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Connection Status Banner (เฉพาะ Admin เข้าตั้งค่าได้) -->
+  <div id="connection-banner" class="bg-amber-50 border-b border-amber-200 text-amber-800 text-xs py-2 px-3 sm:px-4 text-center flex items-center justify-center flex-wrap gap-1.5 transition-all">
+    <span id="connection-dot" class="inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0"></span>
+    <span id="connection-text">กำลังทำงานในโหมดตัวอย่าง (Demo Mode)</span>
+    <button id="btn-banner-config" onclick="openConfigModal()" class="hidden underline font-semibold ml-1.5 text-amber-900 hover:text-amber-950 cursor-pointer">ตั้งค่าเชื่อมต่อ Google Sheet</button>
+  </div>
+
+  <!-- Main Container -->
+  <main class="max-w-5xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-5 flex-1 flex flex-col">
+
+    <!-- ========================================== -->
+    <!-- SCREEN 1: LOGIN VIEW (หน้าจอแรกก่อนเข้าใช้งาน) -->
+    <!-- ========================================== -->
+    <section id="view-login" class="flex-1 flex items-center justify-center py-4 sm:py-8">
+      <div class="bg-white rounded-2xl sm:rounded-3xl shadow-xl border border-slate-200/90 p-5 sm:p-8 max-w-sm sm:max-w-md w-full">
+        
+        <div class="text-center mb-6">
+          <div class="inline-flex p-3 sm:p-3.5 rounded-2xl bg-blue-50 text-blue-600 mb-3 border border-blue-100 shadow-sm">
+            <i data-lucide="shield-check" class="w-8 h-8 sm:w-10 sm:h-10"></i>
+          </div>
+          <h2 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">เข้าสู่ระบบรักษาความปลอดภัย</h2>
+          <p class="text-xs text-slate-500 mt-1">กรุณาระบุรหัสพนักงานและ PIN เพื่อเริ่มปฏิบัติงาน</p>
+        </div>
+
+        <!-- Login Form -->
+        <form onsubmit="handleLoginFormSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">รหัสประจำตัวพนักงาน (User ID)</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="user" class="w-4 h-4"></i>
+              </span>
+              <input type="text" id="login-username" required placeholder="เช่น G001 หรือ ADM01" autocomplete="username" class="w-full pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">รหัส PIN 4 หลัก</label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+              </span>
+              <input type="password" id="login-pin" maxlength="6" required placeholder="ใส่รหัส PIN" inputmode="numeric" autocomplete="current-password" class="w-full pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base sm:text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition">
+            </div>
+          </div>
+
+          <!-- Error Message Banner -->
+          <div id="login-error-msg" class="hidden bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl flex items-center space-x-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+            <span id="login-error-text">รหัสพนักงานหรือ PIN ไม่ถูกต้อง</span>
+          </div>
+
+          <button type="submit" id="btn-login-submit" class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-base sm:text-sm font-semibold shadow-md shadow-blue-500/25 transition active:scale-[0.98] flex items-center justify-center space-x-2 min-h-[48px]">
+            <i data-lucide="log-in" class="w-5 h-5"></i>
+            <span>เข้าสู่ระบบ (Sign In)</span>
+          </button>
+        </form>
+
+      </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- APP MAIN CONTENT (แสดงหลังจาก Login สำเร็จ) -->
+    <!-- ========================================== -->
+    <div id="app-main-content" class="hidden space-y-4">
+
+      <!-- ========================================== -->
+      <!-- TAB 1: รปภ. เดินตรวจ (Guard Patrol View)   -->
+      <!-- ========================================== -->
+      <section id="view-guard" class="space-y-4">
+        
+        <!-- Card: ข้อมูลเจ้าหน้าที่ รปภ. ที่ล็อกอินอยู่ -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-bold text-slate-800 flex items-center space-x-2">
+              <i data-lucide="user-check" class="w-5 h-5 text-blue-600"></i>
+              <span>ข้อมูลการเข้าเวร รปภ.</span>
+            </h2>
+            <span id="gps-status-badge" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 flex items-center space-x-1">
+              <i data-lucide="map-pin" class="w-3 h-3"></i>
+              <span id="gps-status-text">รอพิกัด GPS...</span>
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+              <div>
+                <span class="text-[11px] text-slate-500 block">เจ้าหน้าที่ผู้ปฏิบัติงาน</span>
+                <span id="active-guard-display-name" class="font-bold text-slate-800 text-sm">นายสมศักดิ์ มั่นคง (G001)</span>
+              </div>
+              <span id="active-guard-role-tag" class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">
+                รปภ. ประจำการ
+              </span>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">สาขา/สถานที่ที่กำลังตรวจ</label>
+              <select id="guard-factory" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+                <option value="นวนคร">นวนคร</option>
+                <option value="นนทบุรี">นนทบุรี</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: ตัวสแกน QR Code (Mobile-First) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-base sm:text-lg flex items-center space-x-2">
+                <i data-lucide="camera" class="w-5 h-5 text-indigo-600"></i>
+                <span>กล้องสแกนจุดตรวจ QR Code</span>
+              </h3>
+              <p class="text-xs text-slate-500 mt-0.5">เดินไปที่ป้ายจุดตรวจ (เช่น Zone 1001) แล้วกดเปิดกล้องเพื่อสแกน</p>
+            </div>
+            <button id="btn-toggle-camera" onclick="toggleCameraScanner()" class="w-full sm:w-auto px-5 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white flex items-center justify-center space-x-2 transition shadow-md shadow-blue-500/20 active:scale-[0.98] min-h-[48px]">
+              <i data-lucide="play" class="w-5 h-5"></i>
+              <span id="btn-camera-text">เปิดกล้องสแกน QR Code</span>
+            </button>
+          </div>
+
+          <!-- Camera Viewport Box -->
+          <div id="scanner-wrapper" class="relative hidden bg-slate-950 rounded-2xl overflow-hidden border-2 border-blue-500/40 shadow-inner my-3 flex flex-col items-center justify-center min-h-[260px] max-h-[380px]">
+            <div id="reader" class="w-full max-w-sm"></div>
+            <div class="p-2 text-center text-xs text-slate-400 bg-slate-900/90 w-full border-t border-slate-800">
+              หันกล้องไปที่แผ่นป้าย QR Code ประจำจุดตรวจ
+            </div>
+          </div>
+
+          <!-- Quick Manual / Simulation Input for testing without printing -->
+          <div class="mt-4 pt-3 border-t border-slate-100">
+            <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 mb-2 gap-1">
+              <span>หรือทดสอบเลือกจุดตรวจ (กรณีไม่มีกล้อง/ทดสอบบนคอม):</span>
+              <button type="button" class="text-blue-600 font-semibold hover:underline" onclick="populateQuickTest()">สุ่มจุดตรวจตัวอย่าง</button>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <select id="quick-zone-select" class="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+                <!-- Populated by JS -->
+              </select>
+              <button onclick="simulateScanFromSelect()" class="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition min-h-[44px]">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                <span>ส่งข้อมูลตรวจ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result Feedback Card (Dynamic) -->
+        <div id="scan-result-card" class="hidden rounded-xl border p-4 shadow-sm transition-all duration-300">
+          <div class="flex items-start space-x-3">
+            <div id="result-icon-box" class="p-2.5 rounded-full text-white mt-0.5">
+              <i id="result-icon" data-lucide="check" class="w-6 h-6"></i>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <h4 id="result-title" class="font-bold text-base">สแกนสำเร็จ</h4>
+                <span id="result-time" class="text-xs text-slate-500">14:15:30</span>
+              </div>
+              <p id="result-zone" class="text-sm font-semibold mt-1 text-slate-700">Zone 1001: ประตูทางเข้าทิศเหนือ</p>
+              <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-200 text-xs text-slate-600">
+                <div>
+                  <span class="text-slate-400">ผู้ตรวจ:</span> <span id="result-guard" class="font-medium text-slate-700">-</span>
+                </div>
+                <div>
+                  <span class="text-slate-400">สถานที่:</span> <span id="result-factory" class="font-medium text-slate-700">สำนักงานใหญ่</span>
+                </div>
+                <div>
+                  <span class="text-slate-400">พิกัดสแกน:</span> <span id="result-coords" class="font-medium text-slate-700">-</span>
+                </div>
+                <div>
+                  <span class="text-slate-400">ระยะจากป้าย:</span> <span id="result-distance" class="font-semibold text-emerald-600">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Scans in This Session -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-1.5">
+              <i data-lucide="history" class="w-4 h-4 text-slate-500"></i>
+              <span>ประวัติการสแกนในรอบนี้</span>
+            </h3>
+            <span id="session-count" class="text-xs bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full">0 จุดตรวจ</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-600">
+              <thead class="bg-slate-50 text-slate-500 uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="py-2 px-3">เวลา</th>
+                  <th class="py-2 px-3">จุดตรวจ</th>
+                  <th class="py-2 px-3">สาขา</th>
+                  <th class="py-2 px-3">ระยะ GPS</th>
+                  <th class="py-2 px-3">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="session-scans-tbody" class="divide-y divide-slate-100">
+                <tr>
+                  <td colspan="5" class="py-4 text-center text-slate-400">ยังไม่มีการบันทึกการสแกนในรอบนี้</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: ผู้ดูแล / Admin & HR Management     -->
+      <!-- ========================================== -->
+      <section id="view-admin" class="hidden space-y-6">
+
+        <!-- Admin Tab Submenu (Responsive Pill Navigation) -->
+        <div class="flex items-center space-x-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar">
+          <button onclick="switchAdminSubTab('guards')" id="subtab-guards" class="whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white transition shadow-sm flex items-center space-x-1.5 flex-shrink-0 min-h-[40px]">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            <span>จัดการพนักงาน รปภ. / HR</span>
+          </button>
+          <button onclick="switchAdminSubTab('checkpoints')" id="subtab-checkpoints" class="whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 transition flex items-center space-x-1.5 flex-shrink-0 min-h-[40px]">
+            <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+            <span>จัดการจุดตรวจ & สร้าง QR Code</span>
+          </button>
+          <button onclick="switchAdminSubTab('settings')" id="subtab-settings" class="whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 transition flex items-center space-x-1.5 flex-shrink-0 min-h-[40px] hidden">
+            <i data-lucide="settings" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>ตั้งค่า Google Sheets (Admin)</span>
+          </button>
+        </div>
+
+        <!-- SubTab 1: จัดการ รปภ. -->
+        <div id="admin-sec-guards" class="space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-base">รายชื่อเจ้าหน้าที่ รปภ. และผู้ดูแลระบบ</h3>
+              <p class="text-xs text-slate-500">จัดการข้อมูลพนักงาน กำหนดสาขา และแก้ไขรหัสผ่าน PIN</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="fetchDataFromGoogleSheets()" class="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition min-h-[40px]" title="ดึงข้อมูลล่าสุดจาก Google Sheets">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>ซิงค์ Google Sheet</span>
+              </button>
+              <button onclick="openAddGuardModal()" class="flex-1 sm:flex-initial px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition shadow-sm min-h-[40px]">
+                <i data-lucide="user-plus" class="w-4 h-4"></i>
+                <span>เพิ่มพนักงานใหม่</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto -mx-1 sm:mx-0">
+            <table class="w-full text-left text-xs whitespace-nowrap sm:whitespace-normal">
+              <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-3 sm:px-4">รหัส</th>
+                  <th class="py-3 px-3 sm:px-4">ชื่อ - นามสกุล</th>
+                  <th class="py-3 px-3 sm:px-4">รหัส PIN</th>
+                  <th class="py-3 px-3 sm:px-4">สาขาประจำ</th>
+                  <th class="py-3 px-3 sm:px-4">บทบาท (Role)</th>
+                  <th class="py-3 px-3 sm:px-4">เบอร์โทร</th>
+                  <th class="py-3 px-3 sm:px-4">สถานะ</th>
+                  <th class="py-3 px-3 sm:px-4 text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="guards-table-tbody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SubTab 2: จัดการจุดตรวจ & QR Code -->
+        <div id="admin-sec-checkpoints" class="hidden space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="font-bold text-slate-800 text-base">จุดตรวจ QR Code ทั้ง 3 สาขา</h3>
+              <p class="text-xs text-slate-500">สำนักงานใหญ่, นวนคร, นนทบุรี - กำหนดพิกัด GPS จริง และพิมพ์ป้าย QR Code</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openAddCheckpointModal()" class="flex-1 sm:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition shadow-sm min-h-[40px]">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>เพิ่มจุดตรวจใหม่</span>
+              </button>
+              <button onclick="printAllQRCodes()" class="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition shadow-sm min-h-[40px]">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>พิมพ์ป้าย QR ทั้งหมด</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto -mx-1 sm:mx-0">
+            <table class="w-full text-left text-xs whitespace-nowrap sm:whitespace-normal">
+              <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="py-3 px-3 sm:px-4">รหัสจุดตรวจ</th>
+                  <th class="py-3 px-3 sm:px-4">สาขา</th>
+                  <th class="py-3 px-3 sm:px-4">โซน</th>
+                  <th class="py-3 px-3 sm:px-4">ชื่อสถานที่</th>
+                  <th class="py-3 px-3 sm:px-4">พิกัด GPS จริง (Lat, Lng)</th>
+                  <th class="py-3 px-3 sm:px-4">รัศมียอมรับ</th>
+                  <th class="py-3 px-3 sm:px-4">สถานะ</th>
+                  <th class="py-3 px-3 sm:px-4 text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="checkpoints-table-tbody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SubTab 3: ตั้งค่าเชื่อมต่อ Google Sheets (เฉพาะ Admin เท่านั้น) -->
+        <div id="admin-sec-settings" class="hidden space-y-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+            <div class="flex items-start space-x-3">
+              <div class="p-2.5 rounded-xl bg-blue-50 text-blue-600 flex-shrink-0">
+                <i data-lucide="database" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-slate-800 text-base">ตั้งค่าการเชื่อมต่อ Google Sheets API (เฉพาะ Admin)</h3>
+                <p class="text-xs text-slate-500 mt-0.5">เชื่อมต่อฐานข้อมูล Google Sheets ผ่าน Google Apps Script Web App</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Web App URL (exec):</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="url" id="admin-page-api-input" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="flex-1 bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-mono outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+                  <button onclick="saveAdminPageApiUrl()" class="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition shadow-sm min-h-[44px]">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>บันทึก URL</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
+                <button onclick="testApiConnection()" class="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-medium flex items-center justify-center space-x-1.5 transition min-h-[40px]">
+                  <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                  <span>ทดสอบการเชื่อมต่อ</span>
+                </button>
+                <button onclick="clearAdminPageApiUrl()" class="flex-1 sm:flex-initial px-3.5 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-medium transition min-h-[40px] text-center">
+                  รีเซ็ตเป็นโหมดตัวอย่าง (Reset Demo)
+                </button>
+              </div>
+            </div>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 sm:p-4 text-xs text-blue-900 space-y-1.5 leading-relaxed">
+              <div class="font-bold flex items-center space-x-1.5">
+                <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
+                <span>ขั้นตอนการเชื่อมต่อ Google Sheets:</span>
+              </div>
+              <ol class="list-decimal list-inside space-y-1 text-slate-700">
+                <li>เปิด Google Sheet ของคุณ แล้วไปที่ <strong>ส่วนขยาย (Extensions) &gt; Apps Script</strong></li>
+                <li>นำโค้ดในไฟล์ <code class="bg-blue-100 px-1 py-0.5 rounded text-blue-800 font-mono">backend/Code.gs</code> ไปวางแทนที่แล้วกดบันทึก</li>
+                <li>คลิก <strong>ทำให้ใช้งานได้ (Deploy) &gt; การทำให้ใช้งานได้รายการใหม่ (New deployment)</strong></li>
+                <li>เลือกประเภท <strong>เว็บแอปพลิเคชัน (Web app)</strong>, กำหนด <em>ผู้มีสิทธิ์เข้าถึง (Who has access)</em> เป็น <strong>ทุกคน (Anyone)</strong></li>
+                <li>คัดลอก URL เว็บแอป (ที่ลงท้ายด้วย <code class="bg-blue-100 px-1 py-0.5 rounded text-blue-800 font-mono">/exec</code>) มาวางในช่องด้านบน</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: รายงานสรุปรายเดือน & Logs           -->
+      <!-- ========================================== -->
+      <section id="view-report" class="hidden space-y-5">
+        
+        <!-- Filters Bar -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกเดือน/ปี</label>
+              <input type="month" id="report-month" value="2026-10" onchange="loadMonthlyReport()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกสาขา/โรงงาน</label>
+              <select id="report-factory-filter" onchange="loadMonthlyReport()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none">
+                <option value="ALL">ทุกสาขา (สำนักงานใหญ่, นวนคร, นนทบุรี)</option>
+                <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+                <option value="นวนคร">นวนคร</option>
+                <option value="นนทบุรี">นนทบุรี</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="exportToCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>Export ข้อมูล CSV</span>
+            </button>
+            <button onclick="loadMonthlyReport()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span>รีเฟรชข้อมูล</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI Stat Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div class="text-xs font-medium text-slate-500 mb-1">จำนวนการสแกนทั้งหมด</div>
+            <div id="kpi-total-scans" class="text-2xl font-bold text-slate-800">0</div>
+            <div class="text-[11px] text-slate-400 mt-1">ครั้งในเดือนนี้</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm bg-gradient-to-br from-white to-emerald-50">
+            <div class="text-xs font-medium text-emerald-700 mb-1">สแกนถูกต้อง (ในพิกัด)</div>
+            <div id="kpi-verified-scans" class="text-2xl font-bold text-emerald-600">0</div>
+            <div id="kpi-verified-rate" class="text-[11px] text-emerald-600 mt-1">100% ความแม่นยำ</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-rose-100 shadow-sm bg-gradient-to-br from-white to-rose-50">
+            <div class="text-xs font-medium text-rose-700 mb-1">สแกนผิดปกติ (นอกระยะ)</div>
+            <div id="kpi-flagged-scans" class="text-2xl font-bold text-rose-600">0</div>
+            <div class="text-[11px] text-rose-500 mt-1">ต้องเรียกสอบถาม</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-blue-100 shadow-sm bg-gradient-to-br from-white to-blue-50">
+            <div class="text-xs font-medium text-blue-700 mb-1">จนท. รปภ. ปฏิบัติการ</div>
+            <div id="kpi-active-guards" class="text-2xl font-bold text-blue-600">3</div>
+            <div class="text-[11px] text-blue-500 mt-1">คนที่มีบันทึกตรวจ</div>
+          </div>
+        </div>
+
+        <!-- Breakdown Tables: By Guard & By Zone -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <!-- Guard Performance -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <h4 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-1.5">
+              <i data-lucide="award" class="w-4 h-4 text-amber-500"></i>
+              <span>ผลการเดินตรวจรายบุคคล (รปภ.)</span>
+            </h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th class="py-2 px-3">ชื่อ รปภ.</th>
+                    <th class="py-2 px-3 text-center">สแกนทั้งหมด</th>
+                    <th class="py-2 px-3 text-center">ปกติ</th>
+                    <th class="py-2 px-3 text-center">นอกระยะ</th>
+                  </tr>
+                </thead>
+                <tbody id="guard-perf-tbody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Loaded via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Zone Coverage -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <h4 class="font-bold text-slate-800 text-sm mb-3 flex items-center space-x-1.5">
+              <i data-lucide="map" class="w-4 h-4 text-blue-500"></i>
+              <span>ความถี่การเข้าตรวจแต่ละจุด (Zone)</span>
+            </h4>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th class="py-2 px-3">จุดตรวจ (Zone)</th>
+                    <th class="py-2 px-3">สาขา</th>
+                    <th class="py-2 px-3 text-center">จำนวนครั้งที่ตรวจ</th>
+                  </tr>
+                </thead>
+                <tbody id="zone-perf-tbody" class="divide-y divide-slate-100 text-slate-700">
+                  <!-- Loaded via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Live Patrol Logs Table -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center space-x-1.5">
+              <i data-lucide="list" class="w-4 h-4 text-slate-500"></i>
+              <span>บันทึกประวัติการเดินตรวจล่าสุด (Patrol Logs)</span>
+            </h4>
+            <span class="text-xs text-slate-400">100 รายการล่าสุด</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="py-2 px-3">วัน - เวลา</th>
+                  <th class="py-2 px-3">รปภ. ผู้ตรวจ</th>
+                  <th class="py-2 px-3">สาขา</th>
+                  <th class="py-2 px-3">จุดตรวจ (Zone)</th>
+                  <th class="py-2 px-3">พิกัด GPS</th>
+                  <th class="py-2 px-3">ระยะห่าง</th>
+                  <th class="py-2 px-3">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="logs-table-tbody" class="divide-y divide-slate-100 text-slate-700">
+                <!-- Loaded via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: พิมพ์ QR Code (Print Preview)       -->
+  <!-- ========================================== -->
+  <div id="print-modal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="font-bold text-lg text-slate-800">ป้าย QR Code สำหรับติดจุดตรวจ</h3>
+        <button onclick="closePrintModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <div id="print-area" class="grid grid-cols-2 gap-4 p-2">
+        <!-- Generated QR tags will appear here -->
+      </div>
+
+      <div class="mt-6 flex justify-end space-x-3 border-t pt-4">
+        <button onclick="closePrintModal()" class="px-4 py-2 border rounded-lg text-xs font-semibold text-slate-600">ปิด</button>
+        <button onclick="window.print()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span>พิมพ์ป้าย (Print)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: เพิ่ม รปภ. ใหม่                      -->
+  <!-- ========================================== -->
+  <div id="add-guard-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="font-bold text-slate-800 text-base">เพิ่มเจ้าหน้าที่ รปภ. / HR ใหม่</h3>
+        <button onclick="closeAddGuardModal()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitAddGuard(event)" class="space-y-3 overflow-y-auto flex-1 pr-1">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสพนักงาน (ID)*</label>
+          <input type="text" id="new-guard-id" required placeholder="เช่น G004" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล*</label>
+          <input type="text" id="new-guard-name" required placeholder="เช่น นายธีรศักดิ์ ใจกล้า" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">รหัส PIN (4 หลัก)*</label>
+            <input type="password" id="new-guard-pin" required maxlength="6" value="1234" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">บทบาท (Role)*</label>
+            <select id="new-guard-role" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+              <option value="Guard">รปภ. (Guard)</option>
+              <option value="HR">ฝ่ายบุคคล (HR)</option>
+              <option value="Admin">ผู้ดูแลระบบ (Admin)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">สาขาประจำ*</label>
+            <select id="new-guard-factory" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+              <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+              <option value="นวนคร">นวนคร</option>
+              <option value="นนทบุรี">นนทบุรี</option>
+              <option value="ทุกสาขา">ทุกสาขา</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
+            <input type="text" id="new-guard-phone" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+          </div>
+        </div>
+        <div class="mt-4 flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t">
+          <button type="button" onclick="closeAddGuardModal()" class="w-full sm:w-auto px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 min-h-[44px]">ยกเลิก</button>
+          <button type="submit" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-semibold shadow-sm min-h-[44px]">บันทึกข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: เพิ่มจุดตรวจ Checkpoint ใหม่         -->
+  <!-- ========================================== -->
+  <div id="add-checkpoint-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="font-bold text-slate-800 text-base">เพิ่มจุดตรวจ (Zone Checkpoint)</h3>
+        <button onclick="closeAddCheckpointModal()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitAddCheckpoint(event)" class="space-y-3 overflow-y-auto flex-1 pr-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">สาขา/โรงงาน*</label>
+            <select id="new-cp-factory" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+              <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+              <option value="นวนคร">นวนคร</option>
+              <option value="นนทบุรี">นนทบุรี</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสโซน (Zone Code)*</label>
+            <input type="text" id="new-cp-zone" required placeholder="เช่น Zone 1003" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อตำแหน่ง/คำอธิบายจุดตรวจ*</label>
+          <input type="text" id="new-cp-name" required placeholder="เช่น ทางหนีไฟชั้น 2 โซนผลิต" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+        </div>
+        
+        <!-- พิกัด GPS จริง -->
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">พิกัด GPS ติดตั้งป้ายจริง</span>
+            <button type="button" onclick="fillCurrentLocationToForm()" class="text-xs text-blue-600 font-semibold hover:underline flex items-center space-x-1">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+              <span>ดึงพิกัดปัจจุบันมือถือ</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] text-slate-500 mb-0.5">Latitude</label>
+              <input type="number" step="0.000001" id="new-cp-lat" required placeholder="13.7563" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none min-h-[40px]">
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-500 mb-0.5">Longitude</label>
+              <input type="number" step="0.000001" id="new-cp-lng" required placeholder="100.5018" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none min-h-[40px]">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-0.5">รัศมีความคลาดเคลื่อนที่ยอมรับได้ (เมตร)</label>
+            <input type="number" id="new-cp-radius" value="50" min="10" max="200" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none min-h-[40px]">
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t">
+          <button type="button" onclick="closeAddCheckpointModal()" class="w-full sm:w-auto px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 min-h-[44px]">ยกเลิก</button>
+          <button type="submit" class="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-sm min-h-[44px]">สร้างจุดตรวจ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: แก้ไขข้อมูลพนักงานและรหัสผ่าน       -->
+  <!-- ========================================== -->
+  <div id="edit-guard-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+          <i data-lucide="user-cog" class="w-5 h-5 text-blue-600"></i>
+          <span>แก้ไขข้อมูลพนักงานและรหัสผ่าน</span>
+        </h3>
+        <button onclick="closeEditGuardModal()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitEditGuard(event)" class="space-y-3 overflow-y-auto flex-1 pr-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสพนักงาน (ID)</label>
+            <input type="text" id="edit-guard-id" readonly class="w-full bg-slate-100 text-slate-500 font-mono border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none cursor-not-allowed min-h-[44px]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">สถานะการทำงาน*</label>
+            <select id="edit-guard-status" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+              <option value="Active">เปิดใช้งาน (Active)</option>
+              <option value="Inactive">ระงับการใช้งาน (Inactive)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อ - นามสกุล*</label>
+          <input type="text" id="edit-guard-name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-blue-700 mb-1">รหัส PIN / รหัสผ่าน*</label>
+            <input type="text" id="edit-guard-pin" required maxlength="6" placeholder="รหัส PIN 4-6 หลัก" class="w-full bg-blue-50/50 border border-blue-300 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">บทบาท (Role)*</label>
+            <select id="edit-guard-role" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+              <option value="Guard">รปภ. (Guard)</option>
+              <option value="HR">ฝ่ายบุคคล (HR)</option>
+              <option value="Admin">ผู้ดูแลระบบ (Admin)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">สาขาประจำ*</label>
+            <select id="edit-guard-factory" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+              <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+              <option value="นวนคร">นวนคร</option>
+              <option value="นนทบุรี">นนทบุรี</option>
+              <option value="ทุกสาขา">ทุกสาขา</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
+            <input type="text" id="edit-guard-phone" placeholder="08x-xxx-xxxx" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+          </div>
+        </div>
+        <div class="mt-4 flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t">
+          <button type="button" onclick="closeEditGuardModal()" class="w-full sm:w-auto px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 min-h-[44px]">ยกเลิก</button>
+          <button type="submit" class="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-semibold shadow-sm min-h-[44px]">บันทึกการแก้ไข</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: แก้ไขข้อมูลจุดตรวจ (Checkpoint)      -->
+  <!-- ========================================== -->
+  <div id="edit-checkpoint-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-3 mb-4">
+        <h3 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+          <i data-lucide="map-pin" class="w-5 h-5 text-amber-600"></i>
+          <span>แก้ไขข้อมูลจุดตรวจ (Checkpoint)</span>
+        </h3>
+        <button onclick="closeEditCheckpointModal()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form onsubmit="submitEditCheckpoint(event)" class="space-y-3 overflow-y-auto flex-1 pr-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสจุดตรวจ (ID)</label>
+            <input type="text" id="edit-cp-id" readonly class="w-full bg-slate-100 text-slate-500 font-mono border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none cursor-not-allowed min-h-[44px]">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">สถานะจุดตรวจ*</label>
+            <select id="edit-cp-status" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+              <option value="Active">เปิดใช้งาน (Active)</option>
+              <option value="Inactive">ปิดใช้งาน (Inactive)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">สาขา/โรงงาน*</label>
+            <select id="edit-cp-factory" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+              <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
+              <option value="นวนคร">นวนคร</option>
+              <option value="นนทบุรี">นนทบุรี</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">รหัสโซน (Zone Code)*</label>
+            <input type="text" id="edit-cp-zone" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">ชื่อตำแหน่ง/คำอธิบายจุดตรวจ*</label>
+          <input type="text" id="edit-cp-name" required class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none min-h-[44px]">
+        </div>
+        
+        <!-- พิกัด GPS จริง -->
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">พิกัด GPS ติดตั้งป้ายจริง</span>
+            <button type="button" onclick="fillCurrentLocationToEditForm()" class="text-xs text-blue-600 font-semibold hover:underline flex items-center space-x-1">
+              <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+              <span>ดึงพิกัดปัจจุบันมือถือ</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] text-slate-500 mb-0.5">Latitude</label>
+              <input type="number" step="0.000001" id="edit-cp-lat" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none min-h-[40px]">
+            </div>
+            <div>
+              <label class="block text-[11px] text-slate-500 mb-0.5">Longitude</label>
+              <input type="number" step="0.000001" id="edit-cp-lng" required class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none min-h-[40px]">
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-500 mb-0.5">รัศมีความคลาดเคลื่อนที่ยอมรับได้ (เมตร)</label>
+            <input type="number" id="edit-cp-radius" value="50" min="10" max="200" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none min-h-[40px]">
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-col-reverse sm:flex-row justify-end gap-2 pt-3 border-t">
+          <button type="button" onclick="closeEditCheckpointModal()" class="w-full sm:w-auto px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 min-h-[44px]">ยกเลิก</button>
+          <button type="submit" class="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-sm min-h-[44px]">บันทึกการแก้ไข</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: การตั้งค่าเชื่อมต่อ Google Sheets API -->
+  <!-- ========================================== -->
+  <div id="config-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs hidden z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl max-h-[92vh] flex flex-col">
+      <div class="flex items-center justify-between border-b pb-3 mb-3">
+        <h3 class="font-bold text-slate-800 text-base flex items-center space-x-2">
+          <i data-lucide="cloud" class="w-5 h-5 text-blue-600"></i>
+          <span>ตั้งค่าเชื่อมต่อ Google Sheets (เฉพาะ Admin)</span>
+        </h3>
+        <button onclick="closeConfigModal()" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="space-y-3 text-xs text-slate-600 overflow-y-auto flex-1 pr-1">
+        <p>นำ URL จากการนำไปใช้งานเป็นเว็บแอปพลิเคชัน (Web App Deployment URL) จาก Google Apps Script มาใส่ที่นี่เพื่อซิงค์ข้อมูลจริงกับ Google Sheets:</p>
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Web App URL (exec URL):</label>
+          <input type="url" id="api-endpoint-input" placeholder="https://script.google.com/macros/s/AKfycb.../exec" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 font-mono min-h-[44px]">
+        </div>
+        <div class="bg-blue-50 text-blue-800 p-3.5 rounded-xl text-[11px] leading-relaxed">
+          💡 <strong>คำแนะนำ:</strong> เมื่อเชื่อมต่อเรียบร้อย ข้อมูลการสแกนของ รปภ. ทุกจุดตรวจจะถูกส่งบันทึกลง Google Sheets และพิกัดจริงทันที
+        </div>
+      </div>
+      <div class="mt-4 flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-3 border-t">
+        <button onclick="clearApiUrl()" class="text-rose-600 hover:underline text-xs text-center sm:text-left py-2 sm:py-0">กลับสู่โหมดตัวอย่าง (Reset Demo)</button>
+        <div class="flex items-center space-x-2">
+          <button onclick="closeConfigModal()" class="flex-1 sm:flex-initial px-4 py-2.5 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 min-h-[44px]">ปิด</button>
+          <button onclick="saveApiUrl()" class="flex-1 sm:flex-initial px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-semibold shadow-sm min-h-[44px]">บันทึกการเชื่อมต่อ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio beep for scan feedback -->
+  <audio id="beep-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT APPLICATION LOGIC               -->
+  <!-- ========================================== -->
+  <script>
+    // --- สถานะแอปพลิเคชัน (State) ---
+    const APP_STATE = {
+      apiUrl: localStorage.getItem("GUARD_TOUR_API_URL") || (window.location.hostname.includes("script.google.com") ? window.location.href.split('?')[0] : ""),
+      isDemoMode: true,
+      currentUser: null, // เก็บ session ผู้ใช้งานที่ล็อกอิน { id, name, role, factory, pin }
+      currentGPS: { lat: 13.7563, lng: 100.5018, accuracy: 5 },
+      html5QrCode: null,
+      isScanning: false,
+      sessionScans: [],
+      
+      // ข้อมูลจำลอง (Mock Data)
+      guards: [
+        { id: "G001", name: "นายสมศักดิ์ มั่นคง", pin: "1234", factory: "สำนักงานใหญ่", role: "Guard", phone: "081-111-2222", status: "Active" },
+        { id: "G002", name: "นายวิชัย กล้าหาญ", pin: "1234", factory: "นวนคร", role: "Guard", phone: "082-222-3333", status: "Active" },
+        { id: "G003", name: "นายอนุรักษ์ ปลอดภัย", pin: "1234", factory: "นนทบุรี", role: "Guard", phone: "083-333-4444", status: "Active" },
+        { id: "ADM01", name: "ผู้จัดการ สมพร (HR/Admin)", pin: "9999", factory: "ทุกสาขา", role: "Admin", phone: "089-999-8888", status: "Active" }
+      ],
+      checkpoints: [
+        { checkpointId: "CHK-HQ-1001", factory: "สำนักงานใหญ่", zoneCode: "Zone 1001", zoneName: "ประตูทางเข้าทิศเหนือ อาคารสำนักงานใหญ่", targetLat: 13.7563, targetLng: 100.5018, allowedRadius: 50, status: "Active" },
+        { checkpointId: "CHK-HQ-1002", factory: "สำนักงานใหญ่", zoneCode: "Zone 1002", zoneName: "ลานจอดรถผู้บริหาร สำนักงานใหญ่", targetLat: 13.7565, targetLng: 100.5020, allowedRadius: 50, status: "Active" },
+        { checkpointId: "CHK-NW-2001", factory: "นวนคร", zoneCode: "Zone 2001", zoneName: "ห้องควบคุมไฟฟ้ารวม สาขานวนคร", targetLat: 14.1205, targetLng: 100.6050, allowedRadius: 50, status: "Active" },
+        { checkpointId: "CHK-NW-2002", factory: "นวนคร", zoneCode: "Zone 2002", zoneName: "คลังเก็บวัตถุดิบและสารเคมี สาขานวนคร", targetLat: 14.1210, targetLng: 100.6055, allowedRadius: 50, status: "Active" },
+        { checkpointId: "CHK-NB-3001", factory: "นนทบุรี", zoneCode: "Zone 3001", zoneName: "แนวรั้วติดคลองทิศใต้ สาขานนทบุรี", targetLat: 13.8620, targetLng: 100.5130, allowedRadius: 60, status: "Active" },
+        { checkpointId: "CHK-NB-3002", factory: "นนทบุรี", zoneCode: "Zone 3002", zoneName: "อาคารสำนักงานและวิจัย สาขานนทบุรี", targetLat: 13.8625, targetLng: 100.5135, allowedRadius: 50, status: "Active" }
+      ],
+      logs: [
+        { logId: "LOG-01", date: "2026-10-29", time: "08:15:20", guardId: "G001", guardName: "นายสมศักดิ์ มั่นคง", factory: "สำนักงานใหญ่", zoneCode: "Zone 1001", zoneName: "ประตูทางเข้าทิศเหนือ อาคารสำนักงานใหญ่", lat: 13.75631, lng: 100.50181, accuracy: 4.2, distanceDiff: 1.5, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
+        { logId: "LOG-02", date: "2026-10-29", time: "10:30:11", guardId: "G001", guardName: "นายสมศักดิ์ มั่นคง", factory: "สำนักงานใหญ่", zoneCode: "Zone 1002", zoneName: "ลานจอดรถผู้บริหาร สำนักงานใหญ่", lat: 13.75652, lng: 100.50201, accuracy: 5.0, distanceDiff: 2.8, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
+        { logId: "LOG-03", date: "2026-10-29", time: "11:45:00", guardId: "G002", guardName: "นายวิชัย กล้าหาญ", factory: "นวนคร", zoneCode: "Zone 2001", zoneName: "ห้องควบคุมไฟฟ้ารวม สาขานวนคร", lat: 14.12052, lng: 100.60502, accuracy: 3.8, distanceDiff: 2.1, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
+        { logId: "LOG-04", date: "2026-10-29", time: "13:10:44", guardId: "G003", guardName: "นายอนุรักษ์ ปลอดภัย", factory: "นนทบุรี", zoneCode: "Zone 3001", zoneName: "แนวรั้วติดคลองทิศใต้ สาขานนทบุรี", lat: 13.86450, lng: 100.51600, accuracy: 12.0, distanceDiff: 285.0, status: "Flagged", note: "อยู่นอกรัศมีที่กำหนด (285 ม. เกินกว่า 60 ม.)" }
+      ]
+    };
+
+    // --- เริ่มต้นระบบเมื่อโหลดหน้าเสร็จ ---
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      initGPS();
+      checkApiStatus();
+      renderQuickTestOptions();
+      renderAdminGuards();
+      renderAdminCheckpoints();
+      loadMonthlyReport();
+
+      // ตรวจสอบสถานะการล็อกอินเดิมในเครื่อง
+      checkExistingSession();
+    });
+
+    // --- ตรวจสอบ Session การล็อกอิน ---
+    function checkExistingSession() {
+      const savedUser = sessionStorage.getItem("GUARD_TOUR_USER");
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          applyUserSession(user);
+        } catch (e) {
+          sessionStorage.removeItem("GUARD_TOUR_USER");
+          showLoginView();
+        }
+      } else {
+        showLoginView();
+      }
+    }
+
+    function showLoginView() {
+      APP_STATE.currentUser = null;
+      document.getElementById("view-login").classList.remove("hidden");
+      document.getElementById("app-main-content").classList.add("hidden");
+      document.getElementById("user-info-header").classList.add("hidden");
+      document.getElementById("nav-tabs-container").classList.add("hidden");
+      document.getElementById("login-error-msg").classList.add("hidden");
+      const userInput = document.getElementById("login-username");
+      const pinInput = document.getElementById("login-pin");
+      if (userInput) userInput.value = "";
+      if (pinInput) pinInput.value = "";
+      updateAdminSettingsVisibility();
+      lucide.createIcons();
+    }
+
+    // --- ปรับการแสดงผลปุ่มตั้งค่าระบบตามสิทธิ์ (เฉพาะ Admin เท่านั้น) ---
+    function updateAdminSettingsVisibility() {
+      const isAdmin = !!(APP_STATE.currentUser && APP_STATE.currentUser.role === "Admin");
+      const btnHeader = document.getElementById("btn-header-config");
+      const btnBanner = document.getElementById("btn-banner-config");
+      const subtabSettings = document.getElementById("subtab-settings");
+
+      if (btnHeader) {
+        if (isAdmin) btnHeader.classList.remove("hidden");
+        else btnHeader.classList.add("hidden");
+      }
+      if (btnBanner) {
+        if (isAdmin) {
+          btnBanner.classList.remove("hidden");
+          btnBanner.className = APP_STATE.isDemoMode 
+            ? "underline font-semibold ml-1.5 text-amber-900 hover:text-amber-950 cursor-pointer"
+            : "underline font-semibold ml-1.5 text-emerald-900 hover:text-emerald-950 cursor-pointer";
+        } else {
+          btnBanner.classList.add("hidden");
+        }
+      }
+      if (subtabSettings) {
+        if (isAdmin) subtabSettings.classList.remove("hidden");
+        else subtabSettings.classList.add("hidden");
+      }
+    }
+
+    // --- การเข้าสู่ระบบ (Login Handler) ---
+    async function handleLoginFormSubmit(e) {
+      if (e) e.preventDefault();
+      const username = document.getElementById("login-username").value.trim();
+      const pin = document.getElementById("login-pin").value.trim();
+      await executeLogin(username, pin);
+    }
+
+    async function executeLogin(username, pin) {
+      const errorBox = document.getElementById("login-error-msg");
+      const errorText = document.getElementById("login-error-text");
+      errorBox.classList.add("hidden");
+
+      if (!username || !pin) {
+        errorText.innerText = "กรุณากรอกรหัสพนักงานและ PIN";
+        errorBox.classList.remove("hidden");
+        return;
+      }
+
+      if (APP_STATE.isDemoMode) {
+        // ตรวจสอบในโหมด Demo
+        const matched = APP_STATE.guards.find(g => 
+          g.id.toLowerCase() === username.toLowerCase() && 
+          String(g.pin) === String(pin)
+        );
+
+        if (matched) {
+          if (matched.status !== "Active") {
+            errorText.innerText = "บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อ HR";
+            errorBox.classList.remove("hidden");
+            return;
+          }
+          const userSession = {
+            id: matched.id,
+            name: matched.name,
+            role: matched.role,
+            factory: matched.factory,
+            pin: pin
+          };
+          sessionStorage.setItem("GUARD_TOUR_USER", JSON.stringify(userSession));
+          applyUserSession(userSession);
+        } else {
+          errorText.innerText = "รหัสพนักงานหรือ PIN ไม่ถูกต้อง";
+          errorBox.classList.remove("hidden");
+        }
+      } else {
+        // ตรวจสอบผ่าน Google Apps Script API
+        try {
+          // 1. ลองส่ง action: "login"
+          let res = await fetch(APP_STATE.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "login",
+              username: username,
+              pin: pin
+            })
+          });
+          let data = await res.json();
+
+          // 2. หากเซิร์ฟเวอร์ยังเป็นเวอร์ชันเดิมที่รองรับเฉพาะ adminLogin ให้ลอง fallback อัตโนมัติ
+          if (data.status === "error" && data.message === "Unknown action") {
+            res = await fetch(APP_STATE.apiUrl, {
+              method: "POST",
+              body: JSON.stringify({
+                action: "adminLogin",
+                username: username,
+                pin: pin
+              })
+            });
+            data = await res.json();
+          }
+
+          if (data.status === "success") {
+            const userSession = {
+              id: data.user.id,
+              name: data.user.name,
+              role: data.user.role,
+              factory: data.user.factory,
+              pin: pin
+            };
+            sessionStorage.setItem("GUARD_TOUR_USER", JSON.stringify(userSession));
+            applyUserSession(userSession);
+          } else {
+            if (data.message === "Unknown action") {
+              errorText.innerHTML = "<strong>Google Apps Script ยังเป็นเวอร์ชันเก่า:</strong> กรุณาอัปเดตโค้ดล่าสุดใน Apps Script แล้วกด Deploy > New version";
+            } else {
+              errorText.innerText = data.message || "รหัสพนักงานหรือ PIN ไม่ถูกต้อง";
+            }
+            errorBox.classList.remove("hidden");
+          }
+        } catch (err) {
+          errorText.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: " + err.message;
+          errorBox.classList.remove("hidden");
+        }
+      }
+    }
+
+    // --- ใช้งาน Session และจำแนกสิทธิ์หน้าจอตาม Role ---
+    function applyUserSession(user) {
+      APP_STATE.currentUser = user;
+
+      // 1. ซ่อนหน้า Login และเปิดหน้าหลัก
+      document.getElementById("view-login").classList.add("hidden");
+      document.getElementById("app-main-content").classList.remove("hidden");
+
+      // 2. แสดง User Info บน Header
+      const userInfoHeader = document.getElementById("user-info-header");
+      userInfoHeader.classList.remove("hidden");
+      userInfoHeader.classList.add("flex");
+      document.getElementById("header-user-name").innerText = user.name;
+      document.getElementById("header-user-factory").innerText = user.factory;
+
+      const roleBadge = document.getElementById("header-user-role");
+      if (user.role === "Guard") {
+        roleBadge.className = "text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-300";
+        roleBadge.innerText = "รปภ.";
+      } else if (user.role === "HR") {
+        roleBadge.className = "text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-900 text-purple-300";
+        roleBadge.innerText = "ฝ่ายบุคคล (HR)";
+      } else {
+        roleBadge.className = "text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-900 text-blue-300";
+        roleBadge.innerText = "ผู้ดูแล (Admin)";
+      }
+
+      // 3. กำหนดสิทธิ์และการแสดงผลตาม Role
+      const navContainer = document.getElementById("nav-tabs-container");
+      
+      if (user.role === "Guard") {
+        // [สำหรับ รปภ.]
+        // ซ่อนแถบเมนูทั้งหมด ไม่สามารถเข้า Admin หรือ Report ได้
+        navContainer.classList.add("hidden");
+
+        // ล็อกให้แสดงเฉพาะหน้าสแกนตรวจ
+        showOnlyGuardView();
+
+        // อัปเดตข้อมูล รปภ. ในการ์ดตรวจ
+        document.getElementById("active-guard-display-name").innerText = `${user.name} (${user.id})`;
+        if (user.factory && user.factory !== "ทุกสาขา") {
+          document.getElementById("guard-factory").value = user.factory;
+        }
+      } else {
+        // [สำหรับ Admin หรือ HR]
+        // แสดงแถบนำทางเข้าหน้าอื่น ๆ ได้ครบถ้วน
+        navContainer.classList.remove("hidden");
+
+        // ค่าเริ่มต้นเปิดหน้าจัดการ รปภ. / จุดตรวจ (Admin Tab)
+        switchTab("admin");
+      }
+
+      // อัปเดตการแสดงผลปุ่มตั้งค่าระบบ (เฉพาะ Admin เท่านั้น)
+      updateAdminSettingsVisibility();
+      lucide.createIcons();
+    }
+
+    function showOnlyGuardView() {
+      document.getElementById("view-guard").classList.remove("hidden");
+      document.getElementById("view-admin").classList.add("hidden");
+      document.getElementById("view-report").classList.add("hidden");
+    }
+
+    // --- ออกจากระบบ (Logout) ---
+    function handleLogout() {
+      if (confirm("คุณต้องการออกจากระบบใช่หรือไม่?")) {
+        sessionStorage.removeItem("GUARD_TOUR_USER");
+        stopScanner();
+        showLoginView();
+      }
+    }
+
+    // --- ตรวจสอบสถานะการเชื่อมต่อ API ---
+    function checkApiStatus() {
+      const banner = document.getElementById("connection-banner");
+      const dot = document.getElementById("connection-dot");
+      const text = document.getElementById("connection-text");
+      if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+        APP_STATE.isDemoMode = false;
+        banner.className = "bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs py-2 px-3 sm:px-4 text-center flex items-center justify-center flex-wrap gap-1.5 transition-all";
+        if (dot) dot.className = "inline-block w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0";
+        if (text) text.innerText = "เชื่อมต่อระบบฐานข้อมูล Google Sheets สำเร็จ";
+        // ดึงข้อมูลจริงจาก Google Sheets
+        fetchDataFromGoogleSheets();
+      } else {
+        APP_STATE.isDemoMode = true;
+        banner.className = "bg-amber-50 border-b border-amber-200 text-amber-800 text-xs py-2 px-3 sm:px-4 text-center flex items-center justify-center flex-wrap gap-1.5 transition-all";
+        if (dot) dot.className = "inline-block w-2 h-2 rounded-full bg-amber-500 animate-pulse flex-shrink-0";
+        if (text) text.innerText = "กำลังทำงานในโหมดตัวอย่าง (Demo Mode)";
+      }
+      updateAdminSettingsVisibility();
+    }
+
+    // --- Geolocation Tracking (ดึง GPS มือถือแบบสด) ---
+    function initGPS() {
+      const badge = document.getElementById("gps-status-badge");
+      const text = document.getElementById("gps-status-text");
+
+      if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition(
+          (pos) => {
+            APP_STATE.currentGPS = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy
+            };
+            badge.className = "px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 flex items-center space-x-1";
+            text.innerText = `GPS พร้อม (ความแม่นยำ ±${Math.round(pos.coords.accuracy)} ม.)`;
+          },
+          (err) => {
+            console.warn("GPS Warning:", err.message);
+            badge.className = "px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 flex items-center space-x-1";
+            text.innerText = "ใช้พิกัดจำลอง (สำนักงานใหญ่)";
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+        );
+      } else {
+        badge.className = "px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800 flex items-center space-x-1";
+        text.innerText = "อุปกรณ์ไม่รองรับ GPS";
+      }
+    }
+
+    // --- คำนวณระยะทาง Haversine Formula (เมตร) ---
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // --- สลับแท็บหน้าจอหลัก (สำหรับ Admin / HR) ---
+    function switchTab(tab) {
+      // ป้องกัน รปภ. ไม่ให้เข้าแท็บ admin หรือ report
+      if (APP_STATE.currentUser && APP_STATE.currentUser.role === "Guard" && tab !== "guard") {
+        return;
+      }
+
+      const tabs = ["admin", "report", "guard"];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const view = document.getElementById(`view-${t}`);
+        if (btn && view) {
+          if (t === tab) {
+            btn.className = "flex-1 py-2.5 px-3 text-center text-sm font-medium border-b-2 border-blue-500 text-blue-400 flex items-center justify-center space-x-1.5 transition";
+            view.classList.remove("hidden");
+          } else {
+            btn.className = "flex-1 py-2.5 px-3 text-center text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1.5 transition";
+            view.classList.add("hidden");
+          }
+        }
+      });
+      lucide.createIcons();
+    }
+
+    function switchAdminSubTab(sub) {
+      const gSec = document.getElementById("admin-sec-guards");
+      const cSec = document.getElementById("admin-sec-checkpoints");
+      const sSec = document.getElementById("admin-sec-settings");
+      const gBtn = document.getElementById("subtab-guards");
+      const cBtn = document.getElementById("subtab-checkpoints");
+      const sBtn = document.getElementById("subtab-settings");
+
+      const activeBtn = "whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 text-white transition shadow-sm flex items-center space-x-1.5 flex-shrink-0 min-h-[40px]";
+      const inactiveBtn = "whitespace-nowrap px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 transition flex items-center space-x-1.5 flex-shrink-0 min-h-[40px]";
+
+      if (gSec) gSec.classList.add("hidden");
+      if (cSec) cSec.classList.add("hidden");
+      if (sSec) sSec.classList.add("hidden");
+
+      if (gBtn) gBtn.className = inactiveBtn;
+      if (cBtn) cBtn.className = inactiveBtn;
+      if (sBtn) sBtn.className = inactiveBtn;
+
+      if (sub === 'guards') {
+        if (gSec) gSec.classList.remove("hidden");
+        if (gBtn) gBtn.className = activeBtn;
+      } else if (sub === 'checkpoints') {
+        if (cSec) cSec.classList.remove("hidden");
+        if (cBtn) cBtn.className = activeBtn;
+      } else if (sub === 'settings') {
+        if (sSec) sSec.classList.remove("hidden");
+        if (sBtn) sBtn.className = activeBtn;
+        const input = document.getElementById("admin-page-api-input");
+        if (input) input.value = APP_STATE.apiUrl || "";
+      }
+      lucide.createIcons();
+    }
+
+    function saveAdminPageApiUrl() {
+      if (!APP_STATE.currentUser || APP_STATE.currentUser.role !== "Admin") {
+        alert("ขออภัย: มีเฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนการตั้งค่าได้");
+        return;
+      }
+      const url = document.getElementById("admin-page-api-input").value.trim();
+      APP_STATE.apiUrl = url;
+      localStorage.setItem("GUARD_TOUR_API_URL", url);
+      checkApiStatus();
+      alert("บันทึกการตั้งค่า Web App URL เรียบร้อยแล้ว");
+    }
+
+    function clearAdminPageApiUrl() {
+      if (!APP_STATE.currentUser || APP_STATE.currentUser.role !== "Admin") {
+        alert("ขออภัย: มีเฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนการตั้งค่าได้");
+        return;
+      }
+      if (confirm("ต้องการรีเซ็ตกลับสู่โหมดตัวอย่าง (Demo Mode) ใช่หรือไม่?")) {
+        APP_STATE.apiUrl = "";
+        localStorage.removeItem("GUARD_TOUR_API_URL");
+        const input = document.getElementById("admin-page-api-input");
+        if (input) input.value = "";
+        checkApiStatus();
+        alert("รีเซ็ตเป็นโหมดตัวอย่างเรียบร้อยแล้ว");
+      }
+    }
+
+    async function testApiConnection() {
+      const url = (document.getElementById("admin-page-api-input")?.value || APP_STATE.apiUrl || "").trim();
+      if (!url) {
+        alert("กรุณากรอก Web App URL ก่อนกดทดสอบ");
+        return;
+      }
+      try {
+        const res = await fetch(`${url}?action=getGuards`);
+        const json = await res.json();
+        if (json.status === "success") {
+          alert(`✅ เชื่อมต่อ Google Sheets สำเร็จ!\nพบข้อมูลพนักงานทั้งหมด: ${json.data ? json.data.length : 0} คน`);
+        } else {
+          alert(`⚠️ ตอบกลับจากเซิร์ฟเวอร์แต่มีข้อผิดพลาด: ${json.message || "ไม่ระบุ"}`);
+        }
+      } catch (err) {
+        alert(`❌ เชื่อมต่อไม่สำเร็จ: ${err.message}\nโปรดตรวจสอบว่าได้ตั้งค่า Who has access เป็น Anyone ใน Apps Script แล้วหรือไม่`);
+      }
+    }
+
+    function renderQuickTestOptions() {
+      const select = document.getElementById("quick-zone-select");
+      select.innerHTML = "";
+      APP_STATE.checkpoints.forEach(cp => {
+        const opt = document.createElement("option");
+        opt.value = cp.checkpointId;
+        opt.textContent = `${cp.factory}: ${cp.zoneCode} - ${cp.zoneName}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function populateQuickTest() {
+      const select = document.getElementById("quick-zone-select");
+      const randomIndex = Math.floor(Math.random() * select.options.length);
+      select.selectedIndex = randomIndex;
+    }
+
+    // --- สลับเปิด/ปิดกล้องสแกน QR Code ---
+    function toggleCameraScanner() {
+      const wrapper = document.getElementById("scanner-wrapper");
+      const btnText = document.getElementById("btn-camera-text");
+
+      if (APP_STATE.isScanning) {
+        stopScanner();
+      } else {
+        wrapper.classList.remove("hidden");
+        btnText.innerText = "ปิดกล้อง";
+        APP_STATE.isScanning = true;
+
+        APP_STATE.html5QrCode = new Html5Qrcode("reader");
+        APP_STATE.html5QrCode.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decodedText) => {
+            // สแกนเจอ QR
+            handleQRCodeScanned(decodedText);
+            stopScanner();
+          },
+          (errorMessage) => {
+            // Frame error ignore
+          }
+        ).catch(err => {
+          alert("ไม่สามารถเปิดกล้องได้: " + err + "\nกรุณาอนุญาตสิทธิ์กล้องในบราวเซอร์ หรือใช้ปุ่มส่งข้อมูลทดสอบด้านล่าง");
+          stopScanner();
+        });
+      }
+    }
+
+    function stopScanner() {
+      const wrapper = document.getElementById("scanner-wrapper");
+      const btnText = document.getElementById("btn-camera-text");
+      if (APP_STATE.html5QrCode && APP_STATE.isScanning) {
+        APP_STATE.html5QrCode.stop().then(() => {
+          APP_STATE.html5QrCode.clear();
+          wrapper.classList.add("hidden");
+          btnText.innerText = "เปิดกล้อง";
+          APP_STATE.isScanning = false;
+        }).catch(() => {
+          wrapper.classList.add("hidden");
+          btnText.innerText = "เปิดกล้อง";
+          APP_STATE.isScanning = false;
+        });
+      }
+    }
+
+    // --- ดำเนินการเมื่อสแกน หรือกดส่งข้อมูลตรวจ ---
+    function simulateScanFromSelect() {
+      const selectedCpId = document.getElementById("quick-zone-select").value;
+      handleQRCodeScanned(selectedCpId);
+    }
+
+    async function handleQRCodeScanned(qrContent) {
+      if (!APP_STATE.currentUser) {
+        alert("กรุณาเข้าสู่ระบบก่อนทำการสแกน");
+        showLoginView();
+        return;
+      }
+
+      // เล่นเสียง Beep
+      try {
+        const audio = document.getElementById("beep-sound");
+        audio.currentTime = 0;
+        audio.play().catch(()=>{});
+      } catch(e){}
+
+      const guardId = APP_STATE.currentUser.id;
+      const pin = APP_STATE.currentUser.pin;
+      const factory = document.getElementById("guard-factory").value;
+
+      // ดึงพิกัดมือถือปัจจุบัน
+      const scanLat = APP_STATE.currentGPS.lat;
+      const scanLng = APP_STATE.currentGPS.lng;
+      const accuracy = APP_STATE.currentGPS.accuracy;
+
+      if (APP_STATE.isDemoMode) {
+        // ประมวลผลใน Demo Mode
+        processLocalScan(guardId, pin, factory, qrContent, scanLat, scanLng, accuracy);
+      } else {
+        // ส่งไปยัง Google Apps Script Backend
+        try {
+          const res = await fetch(APP_STATE.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "recordScan",
+              guardId: guardId,
+              pin: pin,
+              factory: factory,
+              qrCode: qrContent,
+              lat: scanLat,
+              lng: scanLng,
+              accuracy: accuracy
+            })
+          });
+          const data = await res.json();
+          if (data.status === "success") {
+            displayScanResult(data);
+            fetchDataFromGoogleSheets();
+          } else {
+            alert("บันทึกไม่สำเร็จ: " + data.message);
+          }
+        } catch (err) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Apps Script: " + err.message);
+        }
+      }
+    }
+
+    function processLocalScan(guardId, pin, factory, qrContent, scanLat, scanLng, accuracy) {
+      const guard = APP_STATE.guards.find(g => g.id === guardId) || APP_STATE.currentUser;
+      const cp = APP_STATE.checkpoints.find(c => c.checkpointId === qrContent || c.zoneCode === qrContent);
+
+      if (!cp) {
+        alert("ไม่พบข้อมูลจุดตรวจนี้ในระบบ: " + qrContent);
+        return;
+      }
+
+      // คำนวณระยะห่าง
+      const dist = calculateDistance(scanLat, scanLng, cp.targetLat, cp.targetLng);
+      const isVerified = dist <= cp.allowedRadius;
+      const status = isVerified ? "Verified" : "Flagged";
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      const dateStr = now.toISOString().split('T')[0];
+
+      const logItem = {
+        logId: "LOG-" + Date.now(),
+        date: dateStr,
+        time: timeStr,
+        guardId: guard.id,
+        guardName: guard.name,
+        factory: cp.factory,
+        zoneCode: cp.zoneCode,
+        zoneName: cp.zoneName,
+        lat: scanLat.toFixed(5),
+        lng: scanLng.toFixed(5),
+        accuracy: accuracy.toFixed(1),
+        distanceDiff: dist.toFixed(1),
+        status: status,
+        note: isVerified ? "สแกนถูกต้องตามระยะ" : `อยู่นอกรัศมี (${dist.toFixed(1)} ม. เกินกว่า ${cp.allowedRadius} ม.)`
+      };
+
+      // เพิ่มลง Mock Logs
+      APP_STATE.logs.unshift(logItem);
+      APP_STATE.sessionScans.unshift(logItem);
+
+      displayScanResult({
+        validationStatus: status,
+        guardName: guard.name,
+        zoneCode: cp.zoneCode,
+        zoneName: cp.zoneName,
+        factory: cp.factory,
+        timestamp: `${dateStr} ${timeStr}`,
+        distanceMeters: Math.round(dist),
+        allowedRadius: cp.allowedRadius,
+        lat: scanLat,
+        lng: scanLng
+      });
+
+      renderSessionTable();
+      loadMonthlyReport();
+    }
+
+    // --- แสดงการ์ดผลการสแกน (Feedback Card) ---
+    function displayScanResult(res) {
+      const card = document.getElementById("scan-result-card");
+      const iconBox = document.getElementById("result-icon-box");
+      const icon = document.getElementById("result-icon");
+      const title = document.getElementById("result-title");
+      const time = document.getElementById("result-time");
+      const zone = document.getElementById("result-zone");
+      const guard = document.getElementById("result-guard");
+      const factory = document.getElementById("result-factory");
+      const coords = document.getElementById("result-coords");
+      const distance = document.getElementById("result-distance");
+
+      card.classList.remove("hidden");
+      time.innerText = res.timestamp || new Date().toLocaleTimeString();
+      zone.innerText = `${res.zoneCode}: ${res.zoneName}`;
+      guard.innerText = res.guardName;
+      factory.innerText = res.factory;
+      coords.innerText = `${(res.lat || APP_STATE.currentGPS.lat).toFixed(4)}, ${(res.lng || APP_STATE.currentGPS.lng).toFixed(4)}`;
+
+      if (res.validationStatus === "Verified") {
+        card.className = "rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm";
+        iconBox.className = "p-2.5 rounded-full bg-emerald-600 text-white mt-0.5";
+        icon.setAttribute("data-lucide", "check");
+        title.innerText = "สแกนบันทึกผลสำเร็จ (อยู่ในระยะ)";
+        title.className = "font-bold text-base text-emerald-900";
+        distance.className = "font-semibold text-emerald-700";
+        distance.innerText = `${res.distanceMeters} เมตร (อยู่ในเกณฑ์ ${res.allowedRadius} ม.)`;
+      } else {
+        card.className = "rounded-xl border border-rose-200 bg-rose-50 p-4 shadow-sm";
+        iconBox.className = "p-2.5 rounded-full bg-rose-600 text-white mt-0.5";
+        icon.setAttribute("data-lucide", "alert-triangle");
+        title.innerText = "แจ้งเตือน: อยู่นอกพิกัดจุดตรวจ!";
+        title.className = "font-bold text-base text-rose-900";
+        distance.className = "font-semibold text-rose-700";
+        distance.innerText = `${res.distanceMeters} เมตร (เกินกำหนด ${res.allowedRadius} ม.)`;
+      }
+      lucide.createIcons();
+    }
+
+    function renderSessionTable() {
+      const tbody = document.getElementById("session-scans-tbody");
+      const count = document.getElementById("session-count");
+      count.innerText = `${APP_STATE.sessionScans.length} จุดตรวจ`;
+
+      if (APP_STATE.sessionScans.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">ยังไม่มีการบันทึกการสแกนในรอบนี้</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = APP_STATE.sessionScans.map(s => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3 font-mono">${s.time}</td>
+          <td class="py-2.5 px-3 font-medium text-slate-800">${s.zoneCode} - ${s.zoneName}</td>
+          <td class="py-2.5 px-3">${s.factory}</td>
+          <td class="py-2.5 px-3">${s.distanceDiff} ม.</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${s.status === 'Verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+              ${s.status === 'Verified' ? 'ปกติ' : 'นอกระยะ'}
+            </span>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    // --- จัดการแท็บ Admin: ตาราง รปภ. และ Checkpoints ---
+    function renderAdminGuards() {
+      const tbody = document.getElementById("guards-table-tbody");
+      tbody.innerHTML = APP_STATE.guards.map(g => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-3 px-4 font-mono font-semibold">${g.id}</td>
+          <td class="py-3 px-4 font-medium text-slate-900">${g.name}</td>
+          <td class="py-3 px-4 font-mono text-slate-600 bg-slate-50/50">
+            <span class="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-semibold">${g.pin || '****'}</span>
+          </td>
+          <td class="py-3 px-4">${g.factory}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[11px] font-medium ${g.role === 'Admin' ? 'bg-blue-100 text-blue-800' : g.role === 'HR' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800'}">
+              ${g.role}
+            </span>
+          </td>
+          <td class="py-3 px-4">${g.phone || '-'}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${g.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">
+              ${g.status === 'Active' ? 'พร้อมใช้งาน' : 'ระงับ'}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-center whitespace-nowrap">
+            <button onclick="openEditGuardModal('${g.id}')" class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-[11px] font-semibold inline-flex items-center space-x-1 mr-1 transition">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              <span>แก้ไข</span>
+            </button>
+            <button onclick="toggleGuardStatus('${g.id}')" class="text-xs text-slate-500 hover:text-slate-800 underline">
+              ${g.status === 'Active' ? 'ระงับ' : 'เปิดใช้'}
+            </button>
+          </td>
+        </tr>
+      `).join("");
+      lucide.createIcons();
+    }
+
+    function renderAdminCheckpoints() {
+      const tbody = document.getElementById("checkpoints-table-tbody");
+      tbody.innerHTML = APP_STATE.checkpoints.map(cp => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-3 px-4 font-mono font-bold text-blue-600">${cp.checkpointId}</td>
+          <td class="py-3 px-4 font-medium">${cp.factory}</td>
+          <td class="py-3 px-4 font-semibold text-slate-800">${cp.zoneCode}</td>
+          <td class="py-3 px-4">${cp.zoneName}</td>
+          <td class="py-3 px-4 font-mono text-[11px] text-slate-500">${cp.targetLat}, ${cp.targetLng}</td>
+          <td class="py-3 px-4">±${cp.allowedRadius} ม.</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${cp.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}">
+              ${cp.status === 'Active' ? 'เปิดใช้' : 'ปิด'}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-center whitespace-nowrap">
+            <button onclick="openEditCheckpointModal('${cp.checkpointId}')" class="px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded text-[11px] font-semibold inline-flex items-center space-x-1 mr-1 transition">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              <span>แก้ไข</span>
+            </button>
+            <button onclick="openSingleQRModal('${cp.checkpointId}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium inline-flex items-center space-x-1 transition">
+              <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+              <span>ดูป้าย</span>
+            </button>
+          </td>
+        </tr>
+      `).join("");
+      lucide.createIcons();
+    }
+
+    async function toggleGuardStatus(id) {
+      const guard = APP_STATE.guards.find(g => g.id === id);
+      if (guard) {
+        const nextStatus = guard.status === 'Active' ? 'Inactive' : 'Active';
+        guard.status = nextStatus;
+        renderAdminGuards();
+
+        if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+          try {
+            await fetch(APP_STATE.apiUrl, {
+              method: "POST",
+              body: JSON.stringify({
+                action: "updateGuard",
+                id: id,
+                status: nextStatus
+              })
+            });
+          } catch (e) {
+            console.warn("Toggle status sync error:", e);
+          }
+        }
+      }
+    }
+
+    // --- Modal ควบคุมการพิมพ์ QR Code ---
+    function openSingleQRModal(cpId) {
+      const cp = APP_STATE.checkpoints.find(c => c.checkpointId === cpId);
+      if (!cp) return;
+      generateQRCodesArea([cp]);
+      document.getElementById("print-modal").classList.remove("hidden");
+    }
+
+    function printAllQRCodes() {
+      generateQRCodesArea(APP_STATE.checkpoints);
+      document.getElementById("print-modal").classList.remove("hidden");
+    }
+
+    function generateQRCodesArea(checkpointsList) {
+      const area = document.getElementById("print-area");
+      area.innerHTML = "";
+
+      checkpointsList.forEach((cp, idx) => {
+        const div = document.createElement("div");
+        div.className = "border-2 border-dashed border-slate-400 p-4 rounded-xl flex flex-col items-center text-center bg-white";
+        div.innerHTML = `
+          <div class="text-xs font-bold text-slate-400 tracking-wider uppercase mb-1">จุดตรวจรักษาความปลอดภัย (SECURITY CHECKPOINT)</div>
+          <div class="text-lg font-bold text-blue-700 leading-tight">${cp.factory}</div>
+          <div class="text-2xl font-black text-slate-900 my-1">${cp.zoneCode}</div>
+          <div class="text-xs text-slate-600 mb-3 px-2 font-medium">${cp.zoneName}</div>
+          <div id="qrcode-box-${idx}" class="p-2 bg-white rounded border border-slate-200"></div>
+          <div class="text-[10px] text-slate-400 font-mono mt-2">${cp.checkpointId}</div>
+        `;
+        area.appendChild(div);
+
+        // Generate QR using QRCode.js
+        setTimeout(() => {
+          new QRCode(document.getElementById(`qrcode-box-${idx}`), {
+            text: cp.checkpointId,
+            width: 140,
+            height: 140
+          });
+        }, 50);
+      });
+      lucide.createIcons();
+    }
+
+    function closePrintModal() {
+      document.getElementById("print-modal").classList.add("hidden");
+    }
+
+    // --- Modal เพิ่ม รปภ. / Checkpoint ---
+    function openAddGuardModal() { document.getElementById("add-guard-modal").classList.remove("hidden"); }
+    function closeAddGuardModal() { document.getElementById("add-guard-modal").classList.add("hidden"); }
+    function openAddCheckpointModal() { document.getElementById("add-checkpoint-modal").classList.remove("hidden"); }
+    function closeAddCheckpointModal() { document.getElementById("add-checkpoint-modal").classList.add("hidden"); }
+
+    function fillCurrentLocationToForm() {
+      document.getElementById("new-cp-lat").value = APP_STATE.currentGPS.lat.toFixed(6);
+      document.getElementById("new-cp-lng").value = APP_STATE.currentGPS.lng.toFixed(6);
+      alert("ดึงพิกัดมือถือปัจจุบันเรียบร้อยแล้ว");
+    }
+
+    async function submitAddGuard(e) {
+      e.preventDefault();
+      const newGuard = {
+        id: document.getElementById("new-guard-id").value.trim(),
+        name: document.getElementById("new-guard-name").value.trim(),
+        pin: document.getElementById("new-guard-pin").value.trim(),
+        factory: document.getElementById("new-guard-factory").value,
+        role: document.getElementById("new-guard-role").value,
+        phone: document.getElementById("new-guard-phone").value.trim(),
+        status: "Active"
+      };
+
+      // ส่งไปยัง Google Apps Script Backend เพื่อบันทึกลง Google Sheets
+      if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+        try {
+          const res = await fetch(APP_STATE.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "addGuard",
+              id: newGuard.id,
+              name: newGuard.name,
+              pin: newGuard.pin,
+              factory: newGuard.factory,
+              role: newGuard.role,
+              phone: newGuard.phone
+            })
+          });
+          const data = await res.json();
+          if (data.status === "error") {
+            alert("บันทึกลง Google Sheets ไม่สำเร็จ: " + data.message);
+            return;
+          }
+        } catch (err) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: " + err.message);
+          return;
+        }
+      }
+
+      const existingIdx = APP_STATE.guards.findIndex(g => g.id.toLowerCase() === newGuard.id.toLowerCase());
+      if (existingIdx >= 0) {
+        APP_STATE.guards[existingIdx] = newGuard;
+      } else {
+        APP_STATE.guards.push(newGuard);
+      }
+
+      renderAdminGuards();
+      closeAddGuardModal();
+      fetchDataFromGoogleSheets();
+      alert(`เพิ่มข้อมูลพนักงาน ${newGuard.name} (${newGuard.id}) ลง Google Sheets เรียบร้อยแล้ว`);
+    }
+
+    async function submitAddCheckpoint(e) {
+      e.preventDefault();
+      const factory = document.getElementById("new-cp-factory").value;
+      const zoneCode = document.getElementById("new-cp-zone").value.trim();
+      const prefix = factory === 'สำนักงานใหญ่' ? 'HQ' : factory === 'นวนคร' ? 'NW' : 'NB';
+      const newCp = {
+        checkpointId: `CHK-${prefix}-${zoneCode.replace('Zone ', '').trim()}`,
+        factory: factory,
+        zoneCode: zoneCode,
+        zoneName: document.getElementById("new-cp-name").value.trim(),
+        targetLat: parseFloat(document.getElementById("new-cp-lat").value),
+        targetLng: parseFloat(document.getElementById("new-cp-lng").value),
+        allowedRadius: parseFloat(document.getElementById("new-cp-radius").value),
+        status: "Active"
+      };
+
+      // ส่งไปยัง Google Apps Script Backend เพื่อบันทึกลง Google Sheets
+      if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+        try {
+          const res = await fetch(APP_STATE.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "addCheckpoint",
+              checkpointId: newCp.checkpointId,
+              factory: newCp.factory,
+              zoneCode: newCp.zoneCode,
+              zoneName: newCp.zoneName,
+              lat: newCp.targetLat,
+              lng: newCp.targetLng,
+              radius: newCp.allowedRadius
+            })
+          });
+          const data = await res.json();
+          if (data.status === "error") {
+            alert("บันทึกลง Google Sheets ไม่สำเร็จ: " + data.message);
+            return;
+          }
+        } catch (err) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: " + err.message);
+          return;
+        }
+      }
+
+      const existingIdx = APP_STATE.checkpoints.findIndex(c => c.checkpointId === newCp.checkpointId);
+      if (existingIdx >= 0) {
+        APP_STATE.checkpoints[existingIdx] = newCp;
+      } else {
+        APP_STATE.checkpoints.push(newCp);
+      }
+
+      renderAdminCheckpoints();
+      renderQuickTestOptions();
+      closeAddCheckpointModal();
+      fetchDataFromGoogleSheets();
+      alert(`เพิ่มจุดตรวจ ${newCp.zoneCode} ลง Google Sheets เรียบร้อยแล้ว`);
+    }
+
+    // --- Modal และการแก้ไขข้อมูลพนักงาน & PIN ---
+    function openEditGuardModal(id) {
+      const guard = APP_STATE.guards.find(g => g.id === id);
+      if (!guard) return;
+
+      document.getElementById("edit-guard-id").value = guard.id;
+      document.getElementById("edit-guard-name").value = guard.name;
+      document.getElementById("edit-guard-pin").value = guard.pin || "1234";
+      document.getElementById("edit-guard-factory").value = guard.factory || "สำนักงานใหญ่";
+      document.getElementById("edit-guard-role").value = guard.role || "Guard";
+      document.getElementById("edit-guard-phone").value = guard.phone || "";
+      document.getElementById("edit-guard-status").value = guard.status || "Active";
+
+      document.getElementById("edit-guard-modal").classList.remove("hidden");
+    }
+
+    function closeEditGuardModal() {
+      document.getElementById("edit-guard-modal").classList.add("hidden");
+    }
+
+    async function submitEditGuard(e) {
+      e.preventDefault();
+      const id = document.getElementById("edit-guard-id").value;
+      const name = document.getElementById("edit-guard-name").value.trim();
+      const pin = document.getElementById("edit-guard-pin").value.trim();
+      const factory = document.getElementById("edit-guard-factory").value;
+      const role = document.getElementById("edit-guard-role").value;
+      const phone = document.getElementById("edit-guard-phone").value.trim();
+      const status = document.getElementById("edit-guard-status").value;
+
+      if (!pin) {
+        alert("กรุณากรอกรหัส PIN อย่างน้อย 4 หลัก");
+        return;
+      }
+
+      // ส่งไปยัง Google Apps Script Backend (ถ้าเชื่อมต่ออยู่)
+      if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+        try {
+          const res = await fetch(APP_STATE.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "updateGuard",
+              id: id,
+              name: name,
+              pin: pin,
+              factory: factory,
+              role: role,
+              phone: phone,
+              status: status
+            })
+          });
+          const data = await res.json();
+          if (data.status === "error") {
+            alert("บันทึกลง Google Sheets ไม่สำเร็จ: " + data.message);
+            return;
+          }
+        } catch (err) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: " + err.message);
+          return;
+        }
+      }
+
+      // ปรับปรุงใน Local State
+      const guard = APP_STATE.guards.find(g => g.id.toLowerCase() === id.toLowerCase());
+      if (guard) {
+        guard.name = name;
+        guard.pin = pin;
+        guard.factory = factory;
+        guard.role = role;
+        guard.phone = phone;
+        guard.status = status;
+      }
+
+      // ถ้ากำลังแก้ไขบัญชีของตัวเองที่ล็อกอินอยู่
+      if (APP_STATE.currentUser && APP_STATE.currentUser.id.toLowerCase() === id.toLowerCase()) {
+        APP_STATE.currentUser.name = name;
+        APP_STATE.currentUser.pin = pin;
+        APP_STATE.currentUser.factory = factory;
+        APP_STATE.currentUser.role = role;
+        sessionStorage.setItem("GUARD_TOUR_USER", JSON.stringify(APP_STATE.currentUser));
+        applyUserSession(APP_STATE.currentUser);
+      }
+
+      renderAdminGuards();
+      closeEditGuardModal();
+      fetchDataFromGoogleSheets();
+      alert(`บันทึกข้อมูลและรหัส PIN ของ ${name} ลง Google Sheets เรียบร้อยแล้ว`);
+    }
+
+    // --- Modal และการแก้ไขจุดตรวจ (Checkpoint) ---
+    function openEditCheckpointModal(cpId) {
+      const cp = APP_STATE.checkpoints.find(c => c.checkpointId === cpId);
+      if (!cp) return;
+
+      document.getElementById("edit-cp-id").value = cp.checkpointId;
+      document.getElementById("edit-cp-factory").value = cp.factory;
+      document.getElementById("edit-cp-zone").value = cp.zoneCode;
+      document.getElementById("edit-cp-name").value = cp.zoneName;
+      document.getElementById("edit-cp-lat").value = cp.targetLat;
+      document.getElementById("edit-cp-lng").value = cp.targetLng;
+      document.getElementById("edit-cp-radius").value = cp.allowedRadius || 50;
+      document.getElementById("edit-cp-status").value = cp.status || "Active";
+
+      document.getElementById("edit-checkpoint-modal").classList.remove("hidden");
+    }
+
+    function closeEditCheckpointModal() {
+      document.getElementById("edit-checkpoint-modal").classList.add("hidden");
+    }
+
+    function fillCurrentLocationToEditForm() {
+      document.getElementById("edit-cp-lat").value = APP_STATE.currentGPS.lat.toFixed(6);
+      document.getElementById("edit-cp-lng").value = APP_STATE.currentGPS.lng.toFixed(6);
+      alert("ดึงพิกัดมือถือปัจจุบันเรียบร้อยแล้ว");
+    }
+
+    async function submitEditCheckpoint(e) {
+      e.preventDefault();
+      const cpId = document.getElementById("edit-cp-id").value;
+      const factory = document.getElementById("edit-cp-factory").value;
+      const zoneCode = document.getElementById("edit-cp-zone").value.trim();
+      const zoneName = document.getElementById("edit-cp-name").value.trim();
+      const lat = parseFloat(document.getElementById("edit-cp-lat").value);
+      const lng = parseFloat(document.getElementById("edit-cp-lng").value);
+      const radius = parseFloat(document.getElementById("edit-cp-radius").value);
+      const status = document.getElementById("edit-cp-status").value;
+
+      // ส่งไปยัง Google Apps Script Backend (ถ้าเชื่อมต่ออยู่)
+      if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+        try {
+          const res = await fetch(APP_STATE.apiUrl, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "updateCheckpoint",
+              checkpointId: cpId,
+              factory: factory,
+              zoneCode: zoneCode,
+              zoneName: zoneName,
+              lat: lat,
+              lng: lng,
+              radius: radius,
+              status: status
+            })
+          });
+          const data = await res.json();
+          if (data.status === "error") {
+            alert("บันทึกลง Google Sheets ไม่สำเร็จ: " + data.message);
+            return;
+          }
+        } catch (err) {
+          alert("เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: " + err.message);
+          return;
+        }
+      }
+
+      // ปรับปรุงใน Local State
+      const cp = APP_STATE.checkpoints.find(c => c.checkpointId === cpId);
+      if (cp) {
+        cp.factory = factory;
+        cp.zoneCode = zoneCode;
+        cp.zoneName = zoneName;
+        cp.targetLat = lat;
+        cp.targetLng = lng;
+        cp.allowedRadius = radius;
+        cp.status = status;
+      }
+
+      renderAdminCheckpoints();
+      renderQuickTestOptions();
+      closeEditCheckpointModal();
+      fetchDataFromGoogleSheets();
+      alert(`บันทึกการแก้ไขจุดตรวจ ${zoneCode} ลง Google Sheets เรียบร้อยแล้ว`);
+    }
+
+    // --- รายงานสรุปรายเดือน (Monthly Report) ---
+    function loadMonthlyReport() {
+      const monthVal = document.getElementById("report-month").value; // "YYYY-MM"
+      const factoryFilter = document.getElementById("report-factory-filter").value;
+
+      const filteredLogs = APP_STATE.logs.filter(l => {
+        const matchMonth = l.date.indexOf(monthVal) === 0;
+        const matchFactory = factoryFilter === "ALL" || l.factory === factoryFilter;
+        return matchMonth && matchFactory;
+      });
+
+      // KPI Calculations
+      const total = filteredLogs.length;
+      const verified = filteredLogs.filter(l => l.status === "Verified").length;
+      const flagged = total - verified;
+      const activeGuardsSet = new Set(filteredLogs.map(l => l.guardId));
+
+      document.getElementById("kpi-total-scans").innerText = total;
+      document.getElementById("kpi-verified-scans").innerText = verified;
+      document.getElementById("kpi-flagged-scans").innerText = flagged;
+      document.getElementById("kpi-active-guards").innerText = activeGuardsSet.size;
+      document.getElementById("kpi-verified-rate").innerText = total > 0 ? `${((verified / total) * 100).toFixed(1)}% ความแม่นยำ` : "0%";
+
+      // Guard Performance Table
+      const guardMap = {};
+      filteredLogs.forEach(l => {
+        if (!guardMap[l.guardName]) guardMap[l.guardName] = { total: 0, verified: 0, flagged: 0 };
+        guardMap[l.guardName].total++;
+        if (l.status === "Verified") guardMap[l.guardName].verified++;
+        else guardMap[l.guardName].flagged++;
+      });
+
+      const guardTbody = document.getElementById("guard-perf-tbody");
+      if (Object.keys(guardMap).length === 0) {
+        guardTbody.innerHTML = `<tr><td colspan="4" class="py-3 text-center text-slate-400">ไม่มีข้อมูลการตรวจในเดือนนี้</td></tr>`;
+      } else {
+        guardTbody.innerHTML = Object.entries(guardMap).map(([name, stat]) => `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-medium">${name}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-slate-800">${stat.total}</td>
+            <td class="py-2.5 px-3 text-center text-emerald-600 font-semibold">${stat.verified}</td>
+            <td class="py-2.5 px-3 text-center text-rose-600 font-semibold">${stat.flagged}</td>
+          </tr>
+        `).join("");
+      }
+
+      // Zone Coverage Table
+      const zoneMap = {};
+      filteredLogs.forEach(l => {
+        const key = `${l.zoneCode} - ${l.zoneName}`;
+        if (!zoneMap[key]) zoneMap[key] = { zone: key, factory: l.factory, count: 0 };
+        zoneMap[key].count++;
+      });
+
+      const zoneTbody = document.getElementById("zone-perf-tbody");
+      if (Object.keys(zoneMap).length === 0) {
+        zoneTbody.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-slate-400">ไม่มีข้อมูลการตรวจในเดือนนี้</td></tr>`;
+      } else {
+        zoneTbody.innerHTML = Object.values(zoneMap).map(z => `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-medium">${z.zone}</td>
+            <td class="py-2.5 px-3">${z.factory}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-blue-600">${z.count} ครั้ง</td>
+          </tr>
+        `).join("");
+      }
+
+      // Logs Table
+      const logsTbody = document.getElementById("logs-table-tbody");
+      if (filteredLogs.length === 0) {
+        logsTbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">ไม่พบประวัติการตรวจตามเงื่อนไขที่เลือก</td></tr>`;
+      } else {
+        logsTbody.innerHTML = filteredLogs.slice(0, 100).map(l => `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2 px-3 font-mono">${l.date} ${l.time}</td>
+            <td class="py-2 px-3 font-medium">${l.guardName}</td>
+            <td class="py-2 px-3">${l.factory}</td>
+            <td class="py-2 px-3 font-semibold text-slate-800">${l.zoneCode}</td>
+            <td class="py-2 px-3 font-mono text-[11px] text-slate-500">${l.lat}, ${l.lng}</td>
+            <td class="py-2 px-3">${l.distanceDiff} ม.</td>
+            <td class="py-2 px-3">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${l.status === 'Verified' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                ${l.status === 'Verified' ? 'ปกติ' : 'นอกระยะ'}
+              </span>
+            </td>
+          </tr>
+        `).join("");
+      }
+    }
+
+    // --- Export CSV ---
+    function exportToCSV() {
+      const monthVal = document.getElementById("report-month").value;
+      const csvRows = [
+        ["Log ID", "Date", "Time", "Guard ID", "Guard Name", "Factory", "Zone Code", "Zone Name", "Latitude", "Longitude", "Distance Diff (m)", "Status", "Note"]
+      ];
+
+      APP_STATE.logs.forEach(l => {
+        csvRows.push([
+          l.logId, l.date, l.time, l.guardId, `"${l.guardName}"`, `"${l.factory}"`, l.zoneCode, `"${l.zoneName}"`, l.lat, l.lng, l.distanceDiff, l.status, `"${l.note}"`
+        ]);
+      });
+
+      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Guard_Patrol_Report_${monthVal}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // --- จัดการการตั้งค่าเชื่อมต่อ Google Sheets API (เฉพาะ Admin เท่านั้น) ---
+    function openConfigModal() {
+      if (!APP_STATE.currentUser || APP_STATE.currentUser.role !== "Admin") {
+        alert("ขออภัย: หน้าต่างการตั้งค่าการเชื่อมต่อ Google Sheets สามารถเข้าถึงได้เฉพาะ ผู้ดูแลระบบ (Admin) เท่านั้น");
+        return;
+      }
+      document.getElementById("api-endpoint-input").value = APP_STATE.apiUrl || "";
+      document.getElementById("config-modal").classList.remove("hidden");
+    }
+
+    function closeConfigModal() {
+      document.getElementById("config-modal").classList.add("hidden");
+    }
+
+    function saveApiUrl() {
+      if (!APP_STATE.currentUser || APP_STATE.currentUser.role !== "Admin") {
+        alert("ขออภัย: มีเฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนการตั้งค่าได้");
+        return;
+      }
+      const url = document.getElementById("api-endpoint-input").value.trim();
+      APP_STATE.apiUrl = url;
+      localStorage.setItem("GUARD_TOUR_API_URL", url);
+      closeConfigModal();
+      checkApiStatus();
+      alert("บันทึกการตั้งค่า Web App URL เรียบร้อยแล้ว");
+    }
+
+    function clearApiUrl() {
+      if (!APP_STATE.currentUser || APP_STATE.currentUser.role !== "Admin") {
+        alert("ขออภัย: มีเฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนการตั้งค่าได้");
+        return;
+      }
+      if (confirm("ต้องการรีเซ็ตกลับสู่โหมดตัวอย่าง (Demo Mode) ใช่หรือไม่?")) {
+        APP_STATE.apiUrl = "";
+        localStorage.removeItem("GUARD_TOUR_API_URL");
+        closeConfigModal();
+        checkApiStatus();
+        alert("รีเซ็ตเป็นโหมดตัวอย่างเรียบร้อยแล้ว");
+      }
+    }
+
+    async function fetchDataFromGoogleSheets() {
+      if (!APP_STATE.apiUrl) return;
+      try {
+        // ดึง Checkpoints
+        const cpRes = await fetch(`${APP_STATE.apiUrl}?action=getCheckpoints`);
+        const cpJson = await cpRes.json();
+        if (cpJson.status === "success" && cpJson.data.length > 0) {
+          APP_STATE.checkpoints = cpJson.data;
+          renderAdminCheckpoints();
+          renderQuickTestOptions();
+        }
+
+        // ดึง Guards
+        const gRes = await fetch(`${APP_STATE.apiUrl}?action=getGuards`);
+        const gJson = await gRes.json();
+        if (gJson.status === "success" && gJson.data.length > 0) {
+          APP_STATE.guards = gJson.data;
+          renderAdminGuards();
+        }
+
+        // ดึง Logs
+        const lRes = await fetch(`${APP_STATE.apiUrl}?action=getLogs&limit=200`);
+        const lJson = await lRes.json();
+        if (lJson.status === "success" && lJson.data.length > 0) {
+          APP_STATE.logs = lJson.data;
+          loadMonthlyReport();
+        }
+      } catch (err) {
+        console.error("Failed to sync with Google Apps Script:", err);
+      }
+    }
+  </script>
+
+</body>
+</html>
