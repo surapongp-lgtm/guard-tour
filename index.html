@@ -957,9 +957,14 @@
   <!-- JAVASCRIPT APPLICATION LOGIC               -->
   <!-- ========================================== -->
   <script>
+    // =========================================================================
+    // URL ค่าเริ่มต้นสำหรับเชื่อมต่อ Google Sheets API (ใส่ URL ที่นี่ ทุกเครื่องจะต่ออัตโนมัติ)
+    // =========================================================================
+    const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbyLjcI9QWLAeb25PTWgp8yBILllRTNXjyv6kxV1OjhZ7Ya9CrbRVatJbP9avcNXkL149Q/exec"; 
+
     // --- สถานะแอปพลิเคชัน (State) ---
     const APP_STATE = {
-      apiUrl: localStorage.getItem("GUARD_TOUR_API_URL") || (window.location.hostname.includes("script.google.com") ? window.location.href.split('?')[0] : ""),
+      apiUrl: localStorage.getItem("GUARD_TOUR_API_URL") || DEFAULT_API_URL || (window.location.hostname.includes("script.google.com") ? window.location.href.split('?')[0] : ""),
       isDemoMode: true,
       currentUser: null, // เก็บ session ผู้ใช้งานที่ล็อกอิน { id, name, role, factory, pin }
       currentGPS: { lat: 13.7563, lng: 100.5018, accuracy: 5 },
