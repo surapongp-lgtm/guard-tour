@@ -197,25 +197,14 @@
             </span>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
-              <div>
-                <span class="text-[11px] text-slate-500 block">เจ้าหน้าที่ผู้ปฏิบัติงาน</span>
-                <span id="active-guard-display-name" class="font-bold text-slate-800 text-sm">นายสมศักดิ์ มั่นคง (G001)</span>
-              </div>
-              <span id="active-guard-role-tag" class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">
-                รปภ. ประจำการ
-              </span>
-            </div>
-
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">สาขา/สถานที่ที่กำลังตรวจ</label>
-              <select id="guard-factory" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
-                <option value="นวนคร">นวนคร</option>
-                <option value="นนทบุรี">นนทบุรี</option>
-              </select>
+              <span class="text-[11px] text-slate-500 block">เจ้าหน้าที่ผู้ปฏิบัติงาน (เข้าสู่ระบบอยู่)</span>
+              <span id="active-guard-display-name" class="font-bold text-slate-800 text-sm sm:text-base">-</span>
             </div>
+            <span id="active-guard-role-tag" class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-lg">
+              รปภ. ประจำการ
+            </span>
           </div>
         </div>
 
@@ -240,23 +229,6 @@
             <div id="reader" class="w-full max-w-sm"></div>
             <div class="p-2 text-center text-xs text-slate-400 bg-slate-900/90 w-full border-t border-slate-800">
               หันกล้องไปที่แผ่นป้าย QR Code ประจำจุดตรวจ
-            </div>
-          </div>
-
-          <!-- Quick Manual / Simulation Input for testing without printing -->
-          <div class="mt-4 pt-3 border-t border-slate-100">
-            <div class="flex flex-wrap items-center justify-between text-xs text-slate-500 mb-2 gap-1">
-              <span>หรือทดสอบเลือกจุดตรวจ (กรณีไม่มีกล้อง/ทดสอบบนคอม):</span>
-              <button type="button" class="text-blue-600 font-semibold hover:underline" onclick="populateQuickTest()">สุ่มจุดตรวจตัวอย่าง</button>
-            </div>
-            <div class="flex flex-col sm:flex-row gap-2">
-              <select id="quick-zone-select" class="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
-                <!-- Populated by JS -->
-              </select>
-              <button onclick="simulateScanFromSelect()" class="w-full sm:w-auto px-4 py-2.5 bg-slate-800 hover:bg-slate-900 active:bg-slate-950 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition min-h-[44px]">
-                <i data-lucide="check-circle" class="w-4 h-4"></i>
-                <span>ส่งข้อมูลตรวจ</span>
-              </button>
             </div>
           </div>
         </div>
@@ -1064,6 +1036,13 @@
       const pinInput = document.getElementById("login-pin");
       if (userInput) userInput.value = "";
       if (pinInput) pinInput.value = "";
+      const guardDisplayName = document.getElementById("active-guard-display-name");
+      const guardRoleTag = document.getElementById("active-guard-role-tag");
+      if (guardDisplayName) guardDisplayName.innerText = "-";
+      if (guardRoleTag) {
+        guardRoleTag.className = "text-xs bg-slate-100 text-slate-500 font-semibold px-2.5 py-1 rounded-lg";
+        guardRoleTag.innerText = "-";
+      }
       updateAdminSettingsVisibility();
       lucide.createIcons();
     }
@@ -1219,7 +1198,26 @@
         roleBadge.innerText = "ผู้ดูแล (Admin)";
       }
 
-      // 3. กำหนดสิทธิ์และการแสดงผลตาม Role
+      // 3. อัปเดตข้อมูลผู้ปฏิบัติงานในการ์ดตรวจ (อัปเดตชื่อผู้ใช้ที่กำลังล็อกอินอยู่เสมอ ทุก Role)
+      const guardDisplayName = document.getElementById("active-guard-display-name");
+      const guardRoleTag = document.getElementById("active-guard-role-tag");
+      if (guardDisplayName) {
+        guardDisplayName.innerText = `${user.name} (${user.id})`;
+      }
+      if (guardRoleTag) {
+        if (user.role === "Guard") {
+          guardRoleTag.className = "text-xs bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1 rounded-lg";
+          guardRoleTag.innerText = "รปภ. ประจำการ";
+        } else if (user.role === "HR") {
+          guardRoleTag.className = "text-xs bg-purple-100 text-purple-800 font-semibold px-2.5 py-1 rounded-lg";
+          guardRoleTag.innerText = "ฝ่ายบุคคล (HR)";
+        } else {
+          guardRoleTag.className = "text-xs bg-blue-100 text-blue-800 font-semibold px-2.5 py-1 rounded-lg";
+          guardRoleTag.innerText = "ผู้ดูแลระบบ (Admin)";
+        }
+      }
+
+      // 4. กำหนดสิทธิ์และการแสดงผลตาม Role
       const navContainer = document.getElementById("nav-tabs-container");
       
       if (user.role === "Guard") {
@@ -1229,12 +1227,6 @@
 
         // ล็อกให้แสดงเฉพาะหน้าสแกนตรวจ
         showOnlyGuardView();
-
-        // อัปเดตข้อมูล รปภ. ในการ์ดตรวจ
-        document.getElementById("active-guard-display-name").innerText = `${user.name} (${user.id})`;
-        if (user.factory && user.factory !== "ทุกสาขา") {
-          document.getElementById("guard-factory").value = user.factory;
-        }
       } else {
         // [สำหรับ Admin หรือ HR]
         // แสดงแถบนำทางเข้าหน้าอื่น ๆ ได้ครบถ้วน
@@ -1432,6 +1424,7 @@
 
     function renderQuickTestOptions() {
       const select = document.getElementById("quick-zone-select");
+      if (!select) return;
       select.innerHTML = "";
       APP_STATE.checkpoints.forEach(cp => {
         const opt = document.createElement("option");
@@ -1443,6 +1436,7 @@
 
     function populateQuickTest() {
       const select = document.getElementById("quick-zone-select");
+      if (!select || select.options.length === 0) return;
       const randomIndex = Math.floor(Math.random() * select.options.length);
       select.selectedIndex = randomIndex;
     }
@@ -1472,7 +1466,7 @@
             // Frame error ignore
           }
         ).catch(err => {
-          alert("ไม่สามารถเปิดกล้องได้: " + err + "\nกรุณาอนุญาตสิทธิ์กล้องในบราวเซอร์ หรือใช้ปุ่มส่งข้อมูลทดสอบด้านล่าง");
+          alert("ไม่สามารถเปิดกล้องได้: " + err + "\nกรุณาอนุญาตสิทธิ์การเข้าถึงกล้องถ่ายรูปในบราวเซอร์มือถือ");
           stopScanner();
         });
       }
@@ -1497,8 +1491,10 @@
 
     // --- ดำเนินการเมื่อสแกน หรือกดส่งข้อมูลตรวจ ---
     function simulateScanFromSelect() {
-      const selectedCpId = document.getElementById("quick-zone-select").value;
-      handleQRCodeScanned(selectedCpId);
+      const select = document.getElementById("quick-zone-select");
+      if (select && select.value) {
+        handleQRCodeScanned(select.value);
+      }
     }
 
     async function handleQRCodeScanned(qrContent) {
@@ -1517,7 +1513,10 @@
 
       const guardId = APP_STATE.currentUser.id;
       const pin = APP_STATE.currentUser.pin;
-      const factory = document.getElementById("guard-factory").value;
+
+      // ดึงสาขาจากจุดตรวจที่สแกนเจอ หรือจากสาขาประจำตัวของเจ้าหน้าที่
+      const matchedCp = APP_STATE.checkpoints.find(c => c.checkpointId === qrContent || c.zoneCode === qrContent);
+      const factory = matchedCp ? matchedCp.factory : (APP_STATE.currentUser.factory && APP_STATE.currentUser.factory !== "ทุกสาขา" ? APP_STATE.currentUser.factory : "สำนักงานใหญ่");
 
       // ดึงพิกัดมือถือปัจจุบัน
       const scanLat = APP_STATE.currentGPS.lat;
