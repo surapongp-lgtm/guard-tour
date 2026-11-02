@@ -482,31 +482,57 @@
       <!-- ========================================== -->
       <section id="view-report" class="hidden space-y-5">
         
-        <!-- Filters Bar -->
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-3">
+        <!-- Filters Bar (คัดกรองตาม เดือน/ปี, สาขา, และ รปภ.) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกเดือน/ปี</label>
-              <input type="month" id="report-month" value="2026-10" onchange="loadMonthlyReport()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none">
+              <label class="block text-xs font-semibold text-slate-700 mb-1">เลือกปี (Year)</label>
+              <select id="report-year" onchange="loadMonthlyReport()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]">
+                <!-- Populated dynamically via JS -->
+              </select>
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">เลือกสาขา/โรงงาน</label>
-              <select id="report-factory-filter" onchange="loadMonthlyReport()" class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs outline-none">
-                <option value="ALL">ทุกสาขา (สำนักงานใหญ่, นวนคร, นนทบุรี)</option>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">เลือกเดือน (Month)</label>
+              <select id="report-month" onchange="loadMonthlyReport()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]">
+                <option value="ALL">ทุกเดือน (ดูทั้งปี)</option>
+                <option value="01">01 - มกราคม</option>
+                <option value="02">02 - กุมภาพันธ์</option>
+                <option value="03">03 - มีนาคม</option>
+                <option value="04">04 - เมษายน</option>
+                <option value="05">05 - พฤษภาคม</option>
+                <option value="06">06 - มิถุนายน</option>
+                <option value="07">07 - กรกฎาคม</option>
+                <option value="08">08 - สิงหาคม</option>
+                <option value="09">09 - กันยายน</option>
+                <option value="10">10 - ตุลาคม</option>
+                <option value="11">11 - พฤศจิกายน</option>
+                <option value="12">12 - ธันวาคม</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">เลือกสาขา/โรงงาน</label>
+              <select id="report-factory-filter" onchange="loadMonthlyReport()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]">
+                <option value="ALL">ทุกสาขา (สนง.ใหญ่ / นวนคร / นนทบุรี)</option>
                 <option value="สำนักงานใหญ่">สำนักงานใหญ่</option>
                 <option value="นวนคร">นวนคร</option>
                 <option value="นนทบุรี">นนทบุรี</option>
               </select>
             </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">เลือก รปภ. (Guard)</label>
+              <select id="report-guard-filter" onchange="loadMonthlyReport()" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 min-h-[40px]">
+                <option value="ALL">ทุกคน (เจ้าหน้าที่ทั้งหมด)</option>
+              </select>
+            </div>
           </div>
-          <div class="flex items-center space-x-2">
-            <button onclick="exportToCSV()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
+          <div class="flex items-center space-x-2 pt-2 lg:pt-0">
+            <button onclick="exportToCSV()" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition min-h-[40px] shadow-sm">
               <i data-lucide="download" class="w-4 h-4"></i>
-              <span>Export ข้อมูล CSV</span>
+              <span>Export CSV (เฉพาะที่คัดกรอง)</span>
             </button>
-            <button onclick="loadMonthlyReport()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-              <span>รีเฟรชข้อมูล</span>
+            <button id="btn-refresh-report" onclick="refreshReportData()" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-1.5 transition min-h-[40px] shadow-sm" title="ดึงข้อมูลล่าสุดจาก Google Sheets">
+              <i id="icon-refresh-report" data-lucide="refresh-cw" class="w-4 h-4"></i>
+              <span id="text-refresh-report">รีเฟรชข้อมูล</span>
             </button>
           </div>
         </div>
@@ -988,8 +1014,8 @@
         { checkpointId: "CHK-NB-3002", factory: "นนทบุรี", zoneCode: "Zone 3002", zoneName: "อาคารสำนักงานและวิจัย สาขานนทบุรี", targetLat: 13.8625, targetLng: 100.5135, allowedRadius: 50, status: "Active" }
       ],
       logs: [
-        { logId: "LOG-01", date: "2026-10-29", time: "08:15:20", guardId: "G001", guardName: "นายสมศักดิ์ มั่นคง", factory: "สำนักงานใหญ่", zoneCode: "Zone 1001", zoneName: "ประตูทางเข้าทิศเหนือ อาคารสำนักงานใหญ่", lat: 13.75631, lng: 100.50181, accuracy: 4.2, distanceDiff: 1.5, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
-        { logId: "LOG-02", date: "2026-10-29", time: "10:30:11", guardId: "G001", guardName: "นายสมศักดิ์ มั่นคง", factory: "สำนักงานใหญ่", zoneCode: "Zone 1002", zoneName: "ลานจอดรถผู้บริหาร สำนักงานใหญ่", lat: 13.75652, lng: 100.50201, accuracy: 5.0, distanceDiff: 2.8, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
+        { logId: "LOG-01", date: "2026-11-01", time: "08:15:20", guardId: "G001", guardName: "นายสมศักดิ์ มั่นคง", factory: "สำนักงานใหญ่", zoneCode: "Zone 1001", zoneName: "ประตูทางเข้าทิศเหนือ อาคารสำนักงานใหญ่", lat: 13.75631, lng: 100.50181, accuracy: 4.2, distanceDiff: 1.5, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
+        { logId: "LOG-02", date: "2026-11-02", time: "10:30:11", guardId: "G001", guardName: "นายสมศักดิ์ มั่นคง", factory: "สำนักงานใหญ่", zoneCode: "Zone 1002", zoneName: "ลานจอดรถผู้บริหาร สำนักงานใหญ่", lat: 13.75652, lng: 100.50201, accuracy: 5.0, distanceDiff: 2.8, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
         { logId: "LOG-03", date: "2026-10-29", time: "11:45:00", guardId: "G002", guardName: "นายวิชัย กล้าหาญ", factory: "นวนคร", zoneCode: "Zone 2001", zoneName: "ห้องควบคุมไฟฟ้ารวม สาขานวนคร", lat: 14.12052, lng: 100.60502, accuracy: 3.8, distanceDiff: 2.1, status: "Verified", note: "สแกนถูกต้องตามระยะ" },
         { logId: "LOG-04", date: "2026-10-29", time: "13:10:44", guardId: "G003", guardName: "นายอนุรักษ์ ปลอดภัย", factory: "นนทบุรี", zoneCode: "Zone 3001", zoneName: "แนวรั้วติดคลองทิศใต้ สาขานนทบุรี", lat: 13.86450, lng: 100.51600, accuracy: 12.0, distanceDiff: 285.0, status: "Flagged", note: "อยู่นอกรัศมีที่กำหนด (285 ม. เกินกว่า 60 ม.)" }
       ]
@@ -999,10 +1025,12 @@
     document.addEventListener("DOMContentLoaded", () => {
       lucide.createIcons();
       initGPS();
+      initReportDateFilters();
       checkApiStatus();
       renderQuickTestOptions();
       renderAdminGuards();
       renderAdminCheckpoints();
+      updateReportGuardFilterOptions();
       loadMonthlyReport();
 
       // ตรวจสอบสถานะการล็อกอินเดิมในเครื่อง
@@ -1580,6 +1608,7 @@
       });
 
       renderSessionTable();
+      updateReportGuardFilterOptions();
       loadMonthlyReport();
     }
 
@@ -2078,18 +2107,92 @@
       alert(`บันทึกการแก้ไขจุดตรวจ ${zoneCode} ลง Google Sheets เรียบร้อยแล้ว`);
     }
 
-    // --- รายงานสรุปรายเดือน (Monthly Report) ---
-    function loadMonthlyReport() {
-      const monthVal = document.getElementById("report-month").value; // "YYYY-MM"
-      const factoryFilter = document.getElementById("report-factory-filter").value;
+    // --- ตั้งค่าปีและเดือนเริ่มต้นของตัวกรองรายงาน ---
+    function initReportDateFilters() {
+      const yearSelect = document.getElementById("report-year");
+      const monthSelect = document.getElementById("report-month");
+      if (!yearSelect || !monthSelect) return;
 
-      const filteredLogs = APP_STATE.logs.filter(l => {
-        const matchMonth = l.date.indexOf(monthVal) === 0;
-        const matchFactory = factoryFilter === "ALL" || l.factory === factoryFilter;
-        return matchMonth && matchFactory;
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+
+      // รวบรวมปีจากข้อมูลย้อนหลัง และอนาคต
+      const yearsSet = new Set([currentYear - 2, currentYear - 1, currentYear, currentYear + 1]);
+      APP_STATE.logs.forEach(l => {
+        if (l.date) {
+          const y = parseInt(l.date.split('-')[0], 10);
+          if (!isNaN(y)) yearsSet.add(y);
+        }
       });
 
-      // KPI Calculations
+      const sortedYears = Array.from(yearsSet).sort((a, b) => b - a);
+      yearSelect.innerHTML = sortedYears.map(y => `<option value="${y}">ปี ${y}</option>`).join("");
+      yearSelect.value = String(currentYear);
+
+      // กำหนดค่าเริ่มต้นเป็นเดือนปัจจุบัน
+      monthSelect.value = currentMonth;
+    }
+
+    // --- อัปเดตรายชื่อ รปภ. ในดรอปดาวน์คัดกรอง ---
+    function updateReportGuardFilterOptions() {
+      const select = document.getElementById("report-guard-filter");
+      if (!select) return;
+      const currentVal = select.value || "ALL";
+
+      const guardMap = new Map();
+      // จากรายชื่อเจ้าหน้าที่ รปภ. ในระบบ
+      APP_STATE.guards.forEach(g => {
+        if (g.role === "Guard" || g.id.startsWith("G")) {
+          guardMap.set(g.id, `${g.name} (${g.id})`);
+        } else {
+          guardMap.set(g.id, `${g.name} [${g.role}]`);
+        }
+      });
+      // จากบันทึก Logs (เผื่อมีชื่อที่เคยตรวจไว้)
+      APP_STATE.logs.forEach(l => {
+        if (l.guardId && !guardMap.has(l.guardId)) {
+          guardMap.set(l.guardId, `${l.guardName || l.guardId} (${l.guardId})`);
+        }
+      });
+
+      select.innerHTML = `<option value="ALL">ทุกคน (เจ้าหน้าที่ทั้งหมด)</option>` +
+        Array.from(guardMap.entries()).map(([id, label]) => `<option value="${id}">${label}</option>`).join("");
+
+      if (guardMap.has(currentVal)) {
+        select.value = currentVal;
+      } else {
+        select.value = "ALL";
+      }
+    }
+
+    // --- ดึงรายการ Logs ที่ผ่านเงื่อนไขตัวกรองทั้งหมด ---
+    function getFilteredLogs() {
+      const yearVal = document.getElementById("report-year")?.value || "";
+      const monthVal = document.getElementById("report-month")?.value || "ALL";
+      const factoryFilter = document.getElementById("report-factory-filter")?.value || "ALL";
+      const guardFilter = document.getElementById("report-guard-filter")?.value || "ALL";
+
+      return APP_STATE.logs.filter(l => {
+        let matchDate = true;
+        if (yearVal) {
+          if (monthVal === "ALL") {
+            matchDate = l.date && l.date.indexOf(yearVal) === 0;
+          } else {
+            matchDate = l.date && l.date.indexOf(`${yearVal}-${monthVal}`) === 0;
+          }
+        }
+        const matchFactory = factoryFilter === "ALL" || l.factory === factoryFilter;
+        const matchGuard = guardFilter === "ALL" || l.guardId === guardFilter || l.guardName === guardFilter;
+        return matchDate && matchFactory && matchGuard;
+      });
+    }
+
+    // --- รายงานสรุปตามเงื่อนไขคัดกรอง (Monthly / Custom Report) ---
+    function loadMonthlyReport() {
+      const filteredLogs = getFilteredLogs();
+
+      // คำนวณ KPI
       const total = filteredLogs.length;
       const verified = filteredLogs.filter(l => l.status === "Verified").length;
       const flagged = total - verified;
@@ -2101,7 +2204,7 @@
       document.getElementById("kpi-active-guards").innerText = activeGuardsSet.size;
       document.getElementById("kpi-verified-rate").innerText = total > 0 ? `${((verified / total) * 100).toFixed(1)}% ความแม่นยำ` : "0%";
 
-      // Guard Performance Table
+      // ตารางผลงานรายบุคคล
       const guardMap = {};
       filteredLogs.forEach(l => {
         if (!guardMap[l.guardName]) guardMap[l.guardName] = { total: 0, verified: 0, flagged: 0 };
@@ -2112,7 +2215,7 @@
 
       const guardTbody = document.getElementById("guard-perf-tbody");
       if (Object.keys(guardMap).length === 0) {
-        guardTbody.innerHTML = `<tr><td colspan="4" class="py-3 text-center text-slate-400">ไม่มีข้อมูลการตรวจในเดือนนี้</td></tr>`;
+        guardTbody.innerHTML = `<tr><td colspan="4" class="py-3 text-center text-slate-400">ไม่มีข้อมูลการตรวจตามเงื่อนไขที่เลือก</td></tr>`;
       } else {
         guardTbody.innerHTML = Object.entries(guardMap).map(([name, stat]) => `
           <tr class="hover:bg-slate-50">
@@ -2124,7 +2227,7 @@
         `).join("");
       }
 
-      // Zone Coverage Table
+      // ตารางความถี่แต่ละจุดตรวจ (Zone)
       const zoneMap = {};
       filteredLogs.forEach(l => {
         const key = `${l.zoneCode} - ${l.zoneName}`;
@@ -2134,7 +2237,7 @@
 
       const zoneTbody = document.getElementById("zone-perf-tbody");
       if (Object.keys(zoneMap).length === 0) {
-        zoneTbody.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-slate-400">ไม่มีข้อมูลการตรวจในเดือนนี้</td></tr>`;
+        zoneTbody.innerHTML = `<tr><td colspan="3" class="py-3 text-center text-slate-400">ไม่มีข้อมูลการตรวจตามเงื่อนไขที่เลือก</td></tr>`;
       } else {
         zoneTbody.innerHTML = Object.values(zoneMap).map(z => `
           <tr class="hover:bg-slate-50">
@@ -2145,7 +2248,7 @@
         `).join("");
       }
 
-      // Logs Table
+      // ตารางรายละเอียดบันทึกการตรวจ (Logs Table)
       const logsTbody = document.getElementById("logs-table-tbody");
       if (filteredLogs.length === 0) {
         logsTbody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-slate-400">ไม่พบประวัติการตรวจตามเงื่อนไขที่เลือก</td></tr>`;
@@ -2168,14 +2271,24 @@
       }
     }
 
-    // --- Export CSV ---
+    // --- Export ข้อมูล CSV เฉพาะรายการที่คัดกรองแล้ว (Filtered CSV Export) ---
     function exportToCSV() {
-      const monthVal = document.getElementById("report-month").value;
+      const filteredLogs = getFilteredLogs();
+      if (!filteredLogs || filteredLogs.length === 0) {
+        alert("ไม่พบข้อมูลตามเงื่อนไขที่คัดกรองในขณะนี้ ไม่สามารถ Export ได้");
+        return;
+      }
+
+      const yearVal = document.getElementById("report-year")?.value || "";
+      const monthVal = document.getElementById("report-month")?.value || "ALL";
+      const factoryFilter = document.getElementById("report-factory-filter")?.value || "ALL";
+      const guardFilter = document.getElementById("report-guard-filter")?.value || "ALL";
+
       const csvRows = [
         ["Log ID", "Date", "Time", "Guard ID", "Guard Name", "Factory", "Zone Code", "Zone Name", "Latitude", "Longitude", "Distance Diff (m)", "Status", "Note"]
       ];
 
-      APP_STATE.logs.forEach(l => {
+      filteredLogs.forEach(l => {
         csvRows.push([
           l.logId, l.date, l.time, l.guardId, `"${l.guardName}"`, `"${l.factory}"`, l.zoneCode, `"${l.zoneName}"`, l.lat, l.lng, l.distanceDiff, l.status, `"${l.note}"`
         ]);
@@ -2185,10 +2298,40 @@
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `Guard_Patrol_Report_${monthVal}.csv`);
+
+      const fileDateLabel = monthVal === "ALL" ? `Year_${yearVal}` : `${yearVal}-${monthVal}`;
+      const fileFactoryLabel = factoryFilter !== "ALL" ? `_${factoryFilter}` : "";
+      const fileGuardLabel = guardFilter !== "ALL" ? `_Guard-${guardFilter}` : "";
+      link.setAttribute("download", `Guard_Patrol_${fileDateLabel}${fileFactoryLabel}${fileGuardLabel}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+    // --- รีเฟรชข้อมูล (Sync ข้อมูลสดจาก Google Sheets และอัปเดตหน้ารายงาน) ---
+    async function refreshReportData() {
+      const btn = document.getElementById("btn-refresh-report");
+      const icon = document.getElementById("icon-refresh-report");
+      const text = document.getElementById("text-refresh-report");
+
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add("animate-spin");
+      if (text) text.innerText = "กำลังซิงค์...";
+
+      try {
+        if (APP_STATE.apiUrl && APP_STATE.apiUrl.trim() !== "") {
+          await fetchDataFromGoogleSheets();
+        }
+        updateReportGuardFilterOptions();
+        loadMonthlyReport();
+      } catch (err) {
+        console.error("Refresh report error:", err);
+        alert("ไม่สามารถรีเฟรชข้อมูลได้: " + err.message);
+      } finally {
+        if (icon) icon.classList.remove("animate-spin");
+        if (text) text.innerText = "รีเฟรชข้อมูล";
+        if (btn) btn.disabled = false;
+      }
     }
 
     // --- จัดการการตั้งค่าเชื่อมต่อ Google Sheets API (เฉพาะ Admin เท่านั้น) ---
@@ -2257,6 +2400,7 @@
         const lJson = await lRes.json();
         if (lJson.status === "success" && lJson.data.length > 0) {
           APP_STATE.logs = lJson.data;
+          updateReportGuardFilterOptions();
           loadMonthlyReport();
         }
       } catch (err) {
